@@ -1,7 +1,7 @@
-import React from 'react';
-import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes} from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
-import Temp from './pages/temp';
+import Dashboard from './pages/Dashboard';
+
 
 const App = () => {
   return (
@@ -10,7 +10,7 @@ const App = () => {
         <Routes>
           <Route path="/" element={<LoginPage />} />
 
-          <Route path="/callback" element={<Temp />} />
+          <Route path="/dashboard/*" element={<Dashboard />} />
           
         </Routes>
       </div>

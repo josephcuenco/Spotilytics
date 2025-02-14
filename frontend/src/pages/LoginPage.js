@@ -1,7 +1,7 @@
 import React from "react";
 
 const CLIENT_ID = "c868abc7e737484fa8c9d686cfdff89d";
-const REDIRECT_URI = "http://localhost:3000/callback"; 
+const REDIRECT_URI = "http://localhost:3000/dashboard"; 
 const AUTH_URL = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=user-read-private%20user-read-email`;
 
 const Login = () => {
