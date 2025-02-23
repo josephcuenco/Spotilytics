@@ -6,7 +6,7 @@ import requests
 from pymongo import MongoClient
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
-from flask_cors import CORS  # Import Flask-CORS
+from flask_cors import CORS
 
 load_dotenv()
 
@@ -23,7 +23,6 @@ client = MongoClient(MONGO_URI)
 db = client.Spotilytics      # Database name
 users_collection = db.users    # Collection for storing users and token info
 
-# Spotipy OAuth Configuration
 sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIFY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
@@ -97,7 +96,7 @@ def get_spotify_client(user_id):
 
 @app.route("/user")
 def get_user_profile():
-    # Retrieve user_id from the query parameter
+    # Retrieve userid from query parameter
     user_id = request.args.get("user_id")
     print("user_id: ", user_id)
     if not user_id:
