@@ -27,7 +27,7 @@ sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIFY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
     redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
-    scope="user-read-private user-read-email",
+    scope="user-read-private user-read-email user-top-read",
     show_dialog=True
 )
 
@@ -98,7 +98,6 @@ def get_spotify_client(user_id):
 def get_user_profile():
     # Retrieve userid from query parameter
     user_id = request.args.get("user_id")
-    print("user_id: ", user_id)
     if not user_id:
         return jsonify({"error": "user_id parameter is required"}), 400
 
@@ -111,6 +110,32 @@ def get_user_profile():
         return jsonify(user_data)
     except Exception as e:
         return jsonify({"error": "Failed to fetch user data", "details": str(e)}), 403
+    
+
+@app.route("/user-top")
+def get_user_top_data():
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id parameter is required"}), 400
+
+    sp = get_spotify_client(user_id)
+
+    # Fetch top tracks
+    top_tracks = sp.current_user_top_tracks(limit=10)
+    top_tracks_list = [{"name": track["name"], "artist": track["artists"][0]["name"]} for track in top_tracks["items"]]
+
+    # Fetch top artists
+    top_artists = sp.current_user_top_artists(limit=10)
+    top_artists_list = [{"name": artist["name"]} for artist in top_artists["items"]]
+
+    # Fetch top albums (from top tracks)
+    top_albums = list(set([track["album"]["name"] for track in top_tracks["items"]]))[:10]
+
+    return jsonify({
+        "topTracks": top_tracks_list,
+        "topArtists": top_artists_list,
+        "topAlbums": top_albums
+    })
 
 if __name__ == "__main__":
     app.run(debug=True)
