@@ -8,15 +8,14 @@ import MusicTheory from "./MusicTheory";
 
 const Dashboard = () => {
     const [user, setUser] = useState(null);
-    const [topData, setTopData] = useState({ topTracks: [], topArtists: [], topAlbums: [] });
-
+    const [topData, setTopData] = useState({ topTracks: [], topArtists: [], 
+        artistPopularity: 0})
     const location = useLocation();
 
     useEffect(() => {
         const fetchUserData = async () => {
             const params = new URLSearchParams(window.location.search);
             const userId = params.get('user_id');
-            // console.log("Extracted userId:", userId);
 
             if (!userId) {
                 console.error("No user_id found in URL");
@@ -28,14 +27,12 @@ const Dashboard = () => {
                 const userResponse = await axios.get('http://localhost:5000/user', {
                     params: { user_id: userId }
                 });
-                // console.log("Fetched user data via axios:", userResponse.data);
                 setUser(userResponse.data);
 
                 // Fetch user's top tracks, artists, and albums
                 const topDataResponse = await axios.get("http://localhost:5000/user-top", {
                     params: { user_id: userId }
                 });
-                // console.log("Fetched user top data:", topDataResponse.data);
                 setTopData(topDataResponse.data);
 
             } catch (error) {
@@ -74,9 +71,21 @@ const Dashboard = () => {
             
                 <div>
                     {location.pathname === "/dashboard" && (
-                        <h1 className="text-5xl font-bold mt-16 ml-32">
+
+
+
+                    <div className="flex justify-between space-x-6 ml-32 mr-16">
+                        <h1 className="text-5xl font-bold mt-16 ml-16 w-1/2">
                             Welcome, {user?.display_name}!
                         </h1>
+
+                        <div className="bg-gray-800 p-6 rounded-lg shadow-md w-1/3">
+                            <h2 className="text-2xl font-bold text-white mb-4">Popularity Ratings</h2>
+                            <p className="text-gray-300">🎵 Top Songs Popularity: {topData.trackPopularity}/100</p>
+                            <p className="text-gray-300">🎤 Top Artists Popularity: {topData.artistPopularity}/100</p>
+                        </div>
+
+                    </div>
                     )}
                 </div>
 
@@ -112,36 +121,30 @@ const Dashboard = () => {
                     </Link>
                 </div>
 
-                <div className="flex justify-between space-x-6 mt-12 ml-32 mr-16">
-                    {/* Top Artists */}
-                    <div className="bg-gray-800 p-6 rounded-lg shadow-md w-1/3">
-                        <h2 className="text-2xl font-bold text-white mb-4">Top Artists</h2>
-                        <ul className="space-y-2">
-                            {topData.topArtists?.map((artist, index) => (
-                                <li key={index} className="text-gray-300">{index + 1}. {artist.name} </li>
-                            ))}
-                        </ul>
-                    </div>
+                <div>
+                    {location.pathname === "/dashboard" && (
+                        <div className="flex justify-between space-x-6 mt-12 ml-32 mr-16">
+                            {/* Top Artists */}
+                            <div className="bg-gray-800 p-6 rounded-lg shadow-md w-1/2">
+                                <h2 className="text-2xl font-bold text-white mb-4">Top Artists</h2>
+                                <ul className="space-y-2">
+                                    {topData.topArtists?.map((artist, index) => (
+                                        <li key={index} className="text-gray-300">{index + 1}. {artist.name} </li>
+                                    ))}
+                                </ul>
+                            </div>
 
-                    {/* Top Albums */}
-                    <div className="bg-gray-800 p-6 rounded-lg shadow-md w-1/3">
-                        <h2 className="text-2xl font-bold text-white mb-4">Top Albums</h2>
-                        <ul className="space-y-2">
-                            {topData.topAlbums?.map((album, index) => (
-                                <li key={index} className="text-gray-300">{index + 1}. {album}</li>
-                            ))}
-                        </ul>
-                    </div>
-
-                    {/* Top Tracks */}
-                    <div className="bg-gray-800 p-6 rounded-lg shadow-md w-1/3">
-                        <h2 className="text-2xl font-bold text-white mb-4">Top Tracks</h2>
-                        <ul className="space-y-2">
-                            {topData.topTracks?.map((track, index) => (
-                                <li key={index} className="text-gray-300">{index + 1}. {track.name} - {track.artist}</li>
-                            ))}
-                        </ul>
-                    </div>
+                            {/* Top Tracks */}
+                            <div className="bg-gray-800 p-6 rounded-lg shadow-md w-1/2">
+                                <h2 className="text-2xl font-bold text-white mb-4">Top Tracks</h2>
+                                <ul className="space-y-2">
+                                    {topData.topTracks?.map((track, index) => (
+                                        <li key={index} className="text-gray-300">{index + 1}. {track.name} - {track.artist}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
 
