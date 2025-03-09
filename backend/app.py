@@ -7,6 +7,8 @@ from pymongo import MongoClient
 from spotipy import Spotify
 from spotipy.oauth2 import SpotifyOAuth
 from flask_cors import CORS
+from bs4 import BeautifulSoup
+import re
 
 load_dotenv()
 
@@ -121,21 +123,131 @@ def get_user_top_data():
     sp = get_spotify_client(user_id)
 
     # Fetch top tracks
-    top_tracks = sp.current_user_top_tracks(limit=10)
+    top_tracks = sp.current_user_top_tracks(limit=50, time_range="long_term")
     top_tracks_list = [{"name": track["name"], "artist": track["artists"][0]["name"]} for track in top_tracks["items"]]
 
     # Fetch top artists
-    top_artists = sp.current_user_top_artists(limit=10)
+    top_artists = sp.current_user_top_artists(limit=50, time_range="long_term")
     top_artists_list = [{"name": artist["name"]} for artist in top_artists["items"]]
 
-    # Fetch top albums (from top tracks)
-    top_albums = list(set([track["album"]["name"] for track in top_tracks["items"]]))[:10]
+    # Compute average track popularity
+    track_popularities = [track["popularity"] for track in top_tracks["items"]]
+    average_track_popularity = sum(track_popularities) / len(track_popularities) if track_popularities else 0
+
+    artist_popularities = [artist["popularity"] for artist in top_artists["items"]]
+    average_artist_popularity = sum(artist_popularities) / len(artist_popularities) if artist_popularities else 0
+    
+    # track_attributes = {
+    #     "danceability": 0,
+    #     "energy": 0,
+    #     "acousticness": 0,
+    #     "valence": 0,
+    #     "instrumentalness": 0,
+    #     "loudness": 0,
+    #     "speechiness": 0
+    # }
+    
+    # Loop through top tracks
+    # for track in top_tracks["items"]:            
+    #         # Fetch artist details
+    #         track_uri = [track["uri"]]
+    #         print(track_uri)
+    #         track_details = sp.audio_features(track_uri)
+
+    #         track_attributes["danceability"] += track_details["danceability"]
+    #         track_attributes["energy"] += track_details["energy"]
+    #         track_attributes["acousticness"] += track_details["acousticness"]
+    #         track_attributes["valence"] += track_details["valence"]
+    #         track_attributes["instrumentalness"] += track_details["instrumentalness"]
+    #         track_attributes["loudness"] += track_details["loudness"]
+    #         track_attributes["speechiness"] += track_details["speechiness"]  
+
+    # average_track_attributes = {key: (value / len(top_tracks["items"]) if len(top_tracks["items"]) > 0 else 0) 
+    #                         for key, value in track_attributes.items()}
+
+
+    # # Get the top 50 genres sorted by count
+    # top_genres_list = sorted(top_genres.items(), key=lambda x: x[1], reverse=True)[:50]
 
     return jsonify({
         "topTracks": top_tracks_list,
         "topArtists": top_artists_list,
-        "topAlbums": top_albums
+        "trackPopularity": round(average_track_popularity, 2),  
+        "artistPopularity": round(average_artist_popularity, 2),
+        # "trackDanceability": round(average_track_attributes["danceability"], 2),
+        # "trackEnergy": round(average_track_attributes["energy"], 2),
+        # "trackAcousticness": round(average_track_attributes["acousticness"], 2),
+        # "trackValence": round(average_track_attributes["valence"], 2),
+        # "trackInstrumentalness": round(average_track_attributes["instrumentalness"], 2),
+        # "trackLoudness": round(average_track_attributes["loudness"], 2),
+        # "trackSpeechiness": round(average_track_attributes["speechiness"], 2)
+
+        #"topGenres": top_genres_list
     })
+
+@app.route("/song-lyrics")
+def get_song_lyrics():
+    # Retrieve song title and artist name from query parameters
+    song_title = request.args.get("song_title")
+    artist_name = request.args.get("artist_name")
+
+    if not song_title or not artist_name:
+        return jsonify({"error": "Both song_title and artist_name parameters are required"}), 400
+
+    # Genius API Base URL and Access Token
+    GENIUS_ACCESS_TOKEN = os.getenv("GENIUS_ACCESS_TOKEN")
+    BASE_URL = "https://api.genius.com"
+
+    # Function to search for a song by title and artist
+    def search_song(song_title, artist_name):
+        search_url = f"{BASE_URL}/search"
+        params = {'q': f'{song_title} {artist_name}'}
+        headers = {'Authorization': f'Bearer {GENIUS_ACCESS_TOKEN}'}
+
+        response = requests.get(search_url, params=params, headers=headers)
+        json_data = response.json()
+
+        # Check if we got results from the API
+        if json_data['response']['hits']:
+            song_path = json_data['response']['hits'][0]['result']['path']
+            return song_path
+        else:
+            raise ValueError("Song not found in Genius database")
+
+    # Function to get lyrics from the song URL
+    def get_lyrics(song_path):
+        song_url = f"https://genius.com{song_path}"
+        print(song_url)
+        page = requests.get(song_url)
+        soup = BeautifulSoup(page.text, 'html.parser')
+        lyrics = ""
+        # Find the lyrics on the page- NEEDS FIXING
+        lyrics_container = soup.find_all('div', attrs={'data-lyrics-container': 'true'})
+        for element in lyrics_container:
+            lyrics += element.get_text() + "\n"
+        class_prefix = "ReferentFragment-desktop-sc"
+        lyrics_elements = soup.find_all(class_=re.compile(f"^{class_prefix}")) 
+        
+        for element in lyrics_elements:
+            lyrics += element.get_text() + "\n"
+
+        if lyrics:
+            return lyrics
+        else:
+            return "Lyrics not found."
+
+    try:
+        song_path = search_song(song_title, artist_name)
+        lyrics = get_lyrics(song_path)
+        return jsonify({"lyrics": lyrics})
+    except ValueError as e:
+        # Catch specific errors like song not found
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        # Catch general errors
+        print(f"Error: {str(e)}")  # Log to console
+        return jsonify({"error": "Failed to fetch lyrics", "details": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True)
