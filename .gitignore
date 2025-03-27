@@ -19,6 +19,7 @@
 /frontend/.env.production.local
 /backend/.env
 /backend/.cache
+/backend/.spotify_cache
 
 npm-debug.log*
 yarn-debug.log*
