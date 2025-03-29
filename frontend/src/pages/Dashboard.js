@@ -1,7 +1,7 @@
 import { React, useEffect, useState } from "react";
 import { Routes, Route, Link , useLocation } from "react-router-dom";
 import axios from "axios";
-import Spotilytics from "../images/Spotilytics.ico";
+import SpotilyticsIcon from "../images/Spotilytics.png";
 import Language from "./Language";
 import Musicality from "./Musicality";
 import MusicTheory from "./MusicTheory";
@@ -46,9 +46,9 @@ const Dashboard = () => {
     return (
         <div className="min-h-screen bg-gray-900 text-white">
             {/* Navigation Bar */}
-            <nav className="bg-gray-900 p-4 flex justify-between items-center shadow-lg">
-                <div className="flex items-center space-x-4 ml-10 mt-10">
-                    <img src={Spotilytics.ico} alt="logo" className="w-10 h-10" />
+            <nav className="bg-gray-800 p-4 flex justify-between items-center shadow-lg">
+                <div className="flex items-center justify-center space-x-4 ml-3">
+                    <img src={SpotilyticsIcon} alt="logo" width="150" height="200" />
                 </div>
 
                 {/* User profile pic and name */}
