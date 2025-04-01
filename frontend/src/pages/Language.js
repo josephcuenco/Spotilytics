@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 
 const Language = () => {
   
-  const [lyrics, setLyrics] = useState('');
+  const [lyricsLanguages, setLyricsLanguages] = useState('');
   const [songTitle, setSongTitle] = useState('Shape of You');  // Set default song title
   const [artistName, setArtistName] = useState('Ed Sheeran');  // Set default artist
 
   useEffect(() => {
     const fetchLyrics = async () => {
       if (!songTitle || !artistName) {
-        setLyrics('Song title and artist name are required.');
+        setLyricsLanguages('Song title and artist name are required.');
         return;
       }
     
@@ -20,19 +20,19 @@ const Language = () => {
     
         if (!response.ok) {
           const errorData = await response.json();
-          setLyrics(errorData.error || 'Error fetching lyrics.');
+          setLyricsLanguages(errorData.error || 'Error fetching lyrics.');
           return;
         }
     
         const data = await response.json();
     
-        if (data.lyrics) {
-          setLyrics(data.lyrics);
-        } else {
-          setLyrics('Lyrics not found.');
-        }
+        const languagesFormatted = data.languages
+        .map(lang => `${lang.name} (${(lang.confidence * 100).toFixed(2)}%)`)
+        .join(", ");
+
+      setLyricsLanguages(languagesFormatted || 'Lyrics language could not be determined.');
       } catch (error) {
-        setLyrics('Error fetching lyrics.');
+        setLyricsLanguages('Error fetching lyrics.');
       }
     };
 
@@ -64,8 +64,8 @@ const Language = () => {
         <p className="text-2xl font-semibold">Song: {songTitle} by {artistName}</p>
 
         <div className="mt-4 p-4 border border-gray-300 rounded-lg">
-          <h2 className="text-2xl font-bold">Lyrics:</h2>
-          <pre className="whitespace-pre-wrap">{lyrics}</pre>
+          <h2 className="text-2xl font-bold">Languages:</h2>
+          <pre className="whitespace-pre-wrap">{lyricsLanguages}</pre>
         </div>
       </div>
     </div>

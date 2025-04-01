@@ -9,6 +9,8 @@ from spotipy.oauth2 import SpotifyOAuth
 from flask_cors import CORS
 from bs4 import BeautifulSoup
 import re
+from langdetect import detect_langs
+from babel import Locale
 
 load_dotenv()
 
@@ -186,7 +188,7 @@ def get_user_top_data():
     })
 
 @app.route("/song-lyrics")
-def get_song_lyrics():
+def get_song_lyric_langs():
     # Retrieve song title and artist name from query parameters
     song_title = request.args.get("song_title")
     artist_name = request.args.get("artist_name")
@@ -239,7 +241,10 @@ def get_song_lyrics():
     try:
         song_path = search_song(song_title, artist_name)
         lyrics = get_lyrics(song_path)
-        return jsonify({"lyrics": lyrics})
+        detected_languages = detect_langs(lyrics)
+        detected_languages_json = [{"language": lang.lang, "name": get_language_name(lang.lang), "confidence": lang.prob} for lang in detected_languages]
+
+        return jsonify({"languages": detected_languages_json})
     except ValueError as e:
         # Catch specific errors like song not found
         return jsonify({"error": str(e)}), 404
@@ -248,6 +253,11 @@ def get_song_lyrics():
         print(f"Error: {str(e)}")  # Log to console
         return jsonify({"error": "Failed to fetch lyrics", "details": str(e)}), 500
 
+def get_language_name(lang_code):
+    try:
+        return Locale(lang_code).english_name
+    except:
+        return "Error Determining Language Name"
 
 if __name__ == "__main__":
     app.run(debug=True)
