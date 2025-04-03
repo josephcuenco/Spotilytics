@@ -122,14 +122,20 @@ def get_user_top_data():
     if not user_id:
         return jsonify({"error": "user_id parameter is required"}), 400
 
+    # get time range from button, default to long term
+    time_range = request.args.get("time_range", "long_term") 
+    
+    if time_range not in ["short_term", "medium_term", "long_term"]:
+        return jsonify({"error": "invalid time range"}), 400
+    
     sp = get_spotify_client(user_id)
 
     # Fetch top tracks
-    top_tracks = sp.current_user_top_tracks(limit=50, time_range="long_term")
+    top_tracks = sp.current_user_top_tracks(limit=50, time_range=time_range)
     top_tracks_list = [{"name": track["name"], "artist": track["artists"][0]["name"]} for track in top_tracks["items"]]
 
     # Fetch top artists
-    top_artists = sp.current_user_top_artists(limit=50, time_range="long_term")
+    top_artists = sp.current_user_top_artists(limit=50, time_range=time_range)
     top_artists_list = [{"name": artist["name"]} for artist in top_artists["items"]]
 
     # Compute average track popularity

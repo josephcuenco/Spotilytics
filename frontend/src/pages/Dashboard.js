@@ -1,4 +1,4 @@
-import { React, useEffect, useState } from "react";
+import { React, useEffect, useState, useCallback } from "react";
 import { Routes, Route, Link , useLocation } from "react-router-dom";
 import axios from "axios";
 import SpotilyticsIcon from "../images/Spotilytics.png";
@@ -11,37 +11,37 @@ const Dashboard = () => {
     const [topData, setTopData] = useState({ topTracks: [], topArtists: [], 
         artistPopularity: 0})
     const location = useLocation();
+    const [timeRange, setTimeRange] = useState("long_term");
 
-    useEffect(() => {
-        const fetchUserData = async () => {
-            const params = new URLSearchParams(window.location.search);
-            const userId = params.get('user_id');
+    const fetchUserData = useCallback(async () => {
+        const params = new URLSearchParams(window.location.search);
+        const userId = params.get("user_id");
 
-            if (!userId) {
-                console.error("No user_id found in URL");
-                return;
-            }
+        if (!userId) {
+            console.error("No user_id found in URL");
+            return;
+        }
 
-            try {
-                // Fetch user profile data
-                const userResponse = await axios.get('http://localhost:5000/user', {
-                    params: { user_id: userId }
-                });
-                setUser(userResponse.data);
+        try {
+            // Fetch user profile data
+            const userResponse = await axios.get("http://localhost:5000/user", {
+                params: { user_id: userId }
+            });
+            setUser(userResponse.data);
 
-                // Fetch user's top tracks, artists, and albums
-                const topDataResponse = await axios.get("http://localhost:5000/user-top", {
-                    params: { user_id: userId }
-                });
-                setTopData(topDataResponse.data);
+            // Fetch user's top tracks and artists with selected time range
+            const topDataResponse = await axios.get("http://localhost:5000/user-top", {
+                params: { user_id: userId, time_range: timeRange }
+            });
+            setTopData(topDataResponse.data);
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        }
+    }, [timeRange]);
 
-            } catch (error) {
-                console.error("Error fetching data:", error);
-            }
-        };
-
-        fetchUserData();
-    }, []);
+        // refetch when time range changes
+        useEffect(() => { fetchUserData();}, [fetchUserData]);
+    
 
     return (
         <div className="min-h-screen bg-gray-900 text-white">
@@ -79,6 +79,23 @@ const Dashboard = () => {
                             Welcome, {user?.display_name}!
                         </h1>
 
+                        <div className="flex space-x-4 mt-6 ml-16">
+                            <button 
+                                onClick={() => setTimeRange("short_term")} 
+                                className={`px-4 py-2 rounded-full ${timeRange === "short_term" ? "bg-green-500" : "bg-gray-600"} text-white`}>
+                                Last 3 Months
+                            </button>
+                            <button 
+                                onClick={() => setTimeRange("medium_term")} 
+                                className={`px-4 py-2 rounded-full ${timeRange === "medium_term" ? "bg-green-500" : "bg-gray-600"} text-white`}>
+                                Last 6 Months
+                            </button>
+                            <button 
+                                onClick={() => setTimeRange("long_term")} 
+                                className={`px-4 py-2 rounded-full ${timeRange === "long_term" ? "bg-green-500" : "bg-gray-600"} text-white`}>
+                                Last 12 Months
+                            </button>
+                        </div>
                         <div className="bg-gray-800 p-6 rounded-lg shadow-md w-1/3">
                             <h2 className="text-2xl font-bold text-white mb-4">Popularity Ratings</h2>
                             <p className="text-gray-300">🎵 Top Songs Popularity: {topData.trackPopularity}/100</p>
