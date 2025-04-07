@@ -154,9 +154,22 @@ const Dashboard = () => {
                             {/* Top Tracks */}
                             <div className="bg-gray-800 p-6 rounded-lg shadow-md w-1/2">
                                 <h2 className="text-2xl font-bold text-white mb-4">Top Tracks</h2>
-                                <ul className="space-y-2">
+                                <ul className="space-y-4">
                                     {topData.topTracks?.map((track, index) => (
-                                        <li key={index} className="text-gray-300">{index + 1}. {track.name} - {track.artist}</li>
+                                        <li key={index} className="flex items-center space-x-4 text-gray-300">
+                                            {/* Album cover image */}
+                                            <img
+                                                src={track.image}
+                                                alt={`${track.name} album cover`}
+                                                className="w-12 h-12 rounded shadow"
+                                            />
+
+                                            {/* Song info */}
+                                            <div>
+                                                <div className="font-semibold">{index + 1}. {track.name}</div>
+                                                <div className="text-sm text-gray-400">{track.artist}</div>
+                                            </div>
+                                        </li>
                                     ))}
                                 </ul>
                             </div>
