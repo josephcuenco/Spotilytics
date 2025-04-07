@@ -9,7 +9,7 @@ import MusicTheory from "./MusicTheory";
 const Dashboard = () => {
     const [user, setUser] = useState(null);
     const [topData, setTopData] = useState({ topTracks: [], topArtists: [], 
-        artistPopularity: 0})
+        artistPopularity: 0, trackPopularity: 0})
     const location = useLocation();
     const [timeRange, setTimeRange] = useState("long_term");
 
