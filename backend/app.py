@@ -139,7 +139,9 @@ def get_user_top_data():
 
     # Fetch top artists
     top_artists = sp.current_user_top_artists(limit=50, time_range=time_range)
-    top_artists_list = [{"name": artist["name"]} for artist in top_artists["items"]]
+    top_artists_list = [{"name": artist["name"],
+                         "image": artist["images"][0]["url"] if artist["images"] else None} 
+                        for artist in top_artists["items"]]
 
     # Compute average track popularity
     track_popularities = [track["popularity"] for track in top_tracks["items"]]
