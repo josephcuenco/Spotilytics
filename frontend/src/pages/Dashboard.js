@@ -107,13 +107,17 @@ const Dashboard = () => {
 
 
                 <div className="flex space-x-6 mt-10 ml-32">
-                    <Link 
-                        to="/dashboard" 
-                        className="px-6 py-2 bg-gray-600 text-white rounded-full transition 
-                        duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
-                    >
-                        Overview
-                    </Link>
+                    {user ? (
+                        <Link 
+                            to={`/dashboard?user_id=${user.id}`}
+                            className="px-6 py-2 bg-gray-600 text-white rounded-full transition 
+                            duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
+                        >
+                            Overview
+                        </Link>
+                    ) : (
+                        <span>Loading...</span>
+                    )}
                     <Link 
                         to="/dashboard/language" 
                         className="px-6 py-2 bg-gray-600 text-white rounded-full transition 
