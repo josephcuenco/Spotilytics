@@ -31,7 +31,7 @@ sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIFY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
     redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
-    scope="user-read-private user-read-email user-top-read",
+    scope="user-read-private user-read-email user-top-read playlist-read-private playlist-read-collaborative",
     show_dialog=True
 )
 
@@ -197,6 +197,24 @@ def get_user_top_data():
 
         #"topGenres": top_genres_list
     })
+
+@app.route("/user-playlists")
+def get_user_playlists():
+    user_id = request.args.get("user_id")
+    sp = get_spotify_client(user_id) 
+
+    playlists_data = sp.current_user_playlists()
+    playlists = [
+        {
+            "name": p["name"],
+            "image": p["images"][0]["url"] if p["images"] else None,
+            "id": p["id"],
+            "tracks_total": p["tracks"]["total"],
+            "url": p["external_urls"]["spotify"]
+        }
+        for p in playlists_data["items"]
+    ]
+    return jsonify(playlists)
 
 @app.route("/song-lyrics")
 def get_song_lyric_langs():
