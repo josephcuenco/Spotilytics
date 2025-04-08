@@ -3,8 +3,7 @@ import { Routes, Route, Link , useLocation } from "react-router-dom";
 import axios from "axios";
 import SpotilyticsIcon from "../images/Spotilytics.png";
 import Language from "./Language";
-import Musicality from "./Musicality";
-import MusicTheory from "./MusicTheory";
+import Playlists from "./Playlists";
 
 const Dashboard = () => {
     const [user, setUser] = useState(null);
@@ -108,34 +107,36 @@ const Dashboard = () => {
 
 
                 <div className="flex space-x-6 mt-10 ml-32">
-                    <Link 
-                        to="/dashboard" 
-                        className="px-6 py-2 bg-gray-600 text-white rounded-full transition 
-                        duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
-                    >
-                        Overview
-                    </Link>
+                    {user ? (
+                        <Link 
+                            to={`/dashboard?user_id=${user.id}`}
+                            className="px-6 py-2 bg-gray-600 text-white rounded-full transition 
+                            duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
+                        >
+                            Overview
+                        </Link>
+                    ) : (
+                        <span>Loading...</span>
+                    )}
                     <Link 
                         to="/dashboard/language" 
                         className="px-6 py-2 bg-gray-600 text-white rounded-full transition 
                         duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
-                    >
+                    >       
                         Language
                     </Link>
-                    <Link 
-                        to="/dashboard/musicality"
-                        className="px-6 py-2 bg-gray-600 text-white rounded-full transition 
-                        duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
-                    >
-                        Musicality
-                    </Link>
-                    <Link 
-                        to="/dashboard/musictheory"
-                        className="px-6 py-2 bg-gray-600 text-white rounded-full transition 
-                        duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
-                    >
-                        Music Theory
-                    </Link>
+                    {user ? (
+                        <Link 
+                            to={`/dashboard/playlists?user_id=${user.id}`}
+                            className="px-6 py-2 bg-gray-600 text-white rounded-full transition 
+                            duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
+                        >
+                            Playlists
+                        </Link>
+                    ) : (
+                        <span>Loading...</span>
+                    )}
+                    
                 </div>
 
                 <div>
@@ -195,8 +196,8 @@ const Dashboard = () => {
 
                 <Routes>
                     <Route path="language" element={<Language />} />
-                    <Route path="musicality" element={<Musicality />} />
-                    <Route path="musictheory" element={<MusicTheory />} />
+                    <Route path="playlists" element={<Playlists />} />
+                    
                 </Routes>
             </div>
         </div>
