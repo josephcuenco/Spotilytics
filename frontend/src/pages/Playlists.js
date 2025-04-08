@@ -7,9 +7,7 @@ const Playlists = () => {
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const userId = params.get("user_id");
-    
-        console.log("Making request to fetch playlists for user_id:", userId);  // Add this log
-    
+        
         axios.get("http://localhost:5000/user-playlists", {
             params: { user_id: userId }
         })
