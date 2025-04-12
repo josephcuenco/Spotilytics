@@ -82,7 +82,11 @@ const Language = () => {
 
         <div className="mt-4 p-4 border border-gray-300 rounded-lg">
           <h2 className="text-2xl font-bold">Data:</h2>
-          <pre className="whitespace-pre-wrap">{JSON.stringify(topSongData, null, 2)}</pre>
+            {topSongData ? (
+              <pre className="whitespace-pre-wrap">{JSON.stringify(topSongData, null, 2)}</pre>
+            ) : (
+              <p>Loading...</p>
+            )}
           </div>
       </div>
     </div>
