@@ -1,3 +1,5 @@
+from collections import defaultdict
+import datetime
 import os
 import time
 from flask import Flask, redirect, request, jsonify, url_for
@@ -11,6 +13,8 @@ from bs4 import BeautifulSoup
 import re
 from langdetect import detect_langs
 from babel import Locale
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import defaultdict
 
 load_dotenv()
 
@@ -24,8 +28,8 @@ CORS(app)
 # Connect to MongoDB
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 client = MongoClient(MONGO_URI)
-db = client.Spotilytics      # Database name
-users_collection = db.users    # Collection for storing users and token info
+db = client["Spotilytics"]      # Database name
+collection = db["users"]    # Collection for storing users and token info
 
 sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIFY_CLIENT_ID"),
@@ -63,7 +67,7 @@ def callback():
     user_id = user_data["id"]
 
     # Store token info in MongoDB, keyed by Spotify user_id
-    users_collection.update_one(
+    collection.update_one(
         {"user_id": user_id},
         {"$set": {
             "access_token": token_info["access_token"],
@@ -78,14 +82,14 @@ def callback():
 
 def get_spotify_client(user_id):
     #Retrieve an authenticated Spotify client using token info from MongoDB
-    user = users_collection.find_one({"user_id": user_id})
+    user = collection.find_one({"user_id": user_id})
     if not user:
         return None
 
     # Check if the access token has expired, and refresh if needed
     if time.time() > user["expires_at"]:
         new_token_info = sp_oauth.refresh_access_token(user["refresh_token"])
-        users_collection.update_one(
+        collection.update_one(
             {"user_id": user_id},
             {"$set": {
                 "access_token": new_token_info["access_token"],
@@ -130,6 +134,12 @@ def get_user_top_data():
     
     sp = get_spotify_client(user_id)
 
+    # Check if data already exists in MongoDB for caching
+    # existing_data = collection.find_one({"user_id": user_id, "time_range": time_range})
+    # if existing_data:
+    #     existing_data["_id"] = str(existing_data["_id"])  # Convert ObjectId to string
+    #     return jsonify(existing_data)
+
     # Fetch top tracks
     top_tracks = sp.current_user_top_tracks(limit=50, time_range=time_range)
     top_tracks_list = [{"name": track["name"], 
@@ -149,54 +159,22 @@ def get_user_top_data():
 
     artist_popularities = [artist["popularity"] for artist in top_artists["items"]]
     average_artist_popularity = sum(artist_popularities) / len(artist_popularities) if artist_popularities else 0
-    
-    # track_attributes = {
-    #     "danceability": 0,
-    #     "energy": 0,
-    #     "acousticness": 0,
-    #     "valence": 0,
-    #     "instrumentalness": 0,
-    #     "loudness": 0,
-    #     "speechiness": 0
-    # }
-    
-    # Loop through top tracks
-    # for track in top_tracks["items"]:            
-    #         # Fetch artist details
-    #         track_uri = [track["uri"]]
-    #         print(track_uri)
-    #         track_details = sp.audio_features(track_uri)
 
-    #         track_attributes["danceability"] += track_details["danceability"]
-    #         track_attributes["energy"] += track_details["energy"]
-    #         track_attributes["acousticness"] += track_details["acousticness"]
-    #         track_attributes["valence"] += track_details["valence"]
-    #         track_attributes["instrumentalness"] += track_details["instrumentalness"]
-    #         track_attributes["loudness"] += track_details["loudness"]
-    #         track_attributes["speechiness"] += track_details["speechiness"]  
-
-    # average_track_attributes = {key: (value / len(top_tracks["items"]) if len(top_tracks["items"]) > 0 else 0) 
-    #                         for key, value in track_attributes.items()}
-
-
-    # # Get the top 50 genres sorted by count
-    # top_genres_list = sorted(top_genres.items(), key=lambda x: x[1], reverse=True)[:50]
-
-    return jsonify({
+    data_to_store = {
+        "user_id": user_id,
+        "time_range": time_range,
         "topTracks": top_tracks_list,
         "topArtists": top_artists_list,
-        "trackPopularity": round(average_track_popularity, 2),  
-        "artistPopularity": round(average_artist_popularity, 2),
-        # "trackDanceability": round(average_track_attributes["danceability"], 2),
-        # "trackEnergy": round(average_track_attributes["energy"], 2),
-        # "trackAcousticness": round(average_track_attributes["acousticness"], 2),
-        # "trackValence": round(average_track_attributes["valence"], 2),
-        # "trackInstrumentalness": round(average_track_attributes["instrumentalness"], 2),
-        # "trackLoudness": round(average_track_attributes["loudness"], 2),
-        # "trackSpeechiness": round(average_track_attributes["speechiness"], 2)
+        "trackPopularity": round(average_track_popularity, 2),
+        "artistPopularity": round(average_artist_popularity, 2)
+    }
 
-        #"topGenres": top_genres_list
-    })
+    # Store data in MongoDB
+    # inserted_doc = collection.insert_one(data_to_store)
+    # data_to_store["_id"] = str(inserted_doc.inserted_id)  # Convert ObjectId to string before returning
+
+    
+    return jsonify(data_to_store)
 
 @app.route("/user-playlists")
 def get_user_playlists():
@@ -217,63 +195,19 @@ def get_user_playlists():
     return jsonify(playlists)
 
 @app.route("/song-lyrics")
-def get_song_lyric_langs():
-    # Retrieve song title and artist name from query parameters
-    song_title = request.args.get("song_title")
-    artist_name = request.args.get("artist_name")
+def get_song_lyric_lang_data():
+    # Retrieve time range from query parameters
+    time_range = request.args.get("time_range")
 
-    if not song_title or not artist_name:
-        return jsonify({"error": "Both song_title and artist_name parameters are required"}), 400
-
-    # Genius API Base URL and Access Token
-    GENIUS_ACCESS_TOKEN = os.getenv("GENIUS_ACCESS_TOKEN")
-    BASE_URL = "https://api.genius.com"
-
-    # Function to search for a song by title and artist
-    def search_song(song_title, artist_name):
-        search_url = f"{BASE_URL}/search"
-        params = {'q': f'{song_title} {artist_name}'}
-        headers = {'Authorization': f'Bearer {GENIUS_ACCESS_TOKEN}'}
-
-        response = requests.get(search_url, params=params, headers=headers)
-        json_data = response.json()
-
-        # Check if we got results from the API
-        if json_data['response']['hits']:
-            song_path = json_data['response']['hits'][0]['result']['path']
-            return song_path
-        else:
-            raise ValueError("Song not found in Genius database")
-
-    # Function to get lyrics from the song URL
-    def get_lyrics(song_path):
-        song_url = f"https://genius.com{song_path}"
-        print(song_url)
-        page = requests.get(song_url)
-        soup = BeautifulSoup(page.text, 'html.parser')
-        lyrics = ""
-        # Find the lyrics on the page- NEEDS FIXING
-        lyrics_container = soup.find_all('div', attrs={'data-lyrics-container': 'true'})
-        for element in lyrics_container:
-            lyrics += element.get_text() + "\n"
-        class_prefix = "ReferentFragment-desktop-sc"
-        lyrics_elements = soup.find_all(class_=re.compile(f"^{class_prefix}")) 
-        
-        for element in lyrics_elements:
-            lyrics += element.get_text() + "\n"
-
-        if lyrics:
-            return lyrics
-        else:
-            return "Lyrics not found."
+    if not time_range:
+        return jsonify({"error": "Time Range parameter is required"}), 400
 
     try:
-        song_path = search_song(song_title, artist_name)
-        lyrics = get_lyrics(song_path)
-        detected_languages = detect_langs(lyrics)
-        detected_languages_json = [{"language": lang.lang, "name": get_language_name(lang.lang), "confidence": lang.prob} for lang in detected_languages]
+        avg_lang_confidences= get_top_songs_language_distribution(time_range)
+       # print(avg_lang_confidences)
 
-        return jsonify({"languages": detected_languages_json})
+        return jsonify({"languages": dict(avg_lang_confidences)})
+
     except ValueError as e:
         # Catch specific errors like song not found
         return jsonify({"error": str(e)}), 404
@@ -282,11 +216,95 @@ def get_song_lyric_langs():
         print(f"Error: {str(e)}")  # Log to console
         return jsonify({"error": "Failed to fetch lyrics", "details": str(e)}), 500
 
+
 def get_language_name(lang_code):
     try:
         return Locale(lang_code).english_name
     except:
         return "Error Determining Language Name"
+    
+    
+def get_top_songs_language_distribution(time_range):
+    # parse through top songs from mongoDB and get the languages 
+    data = collection.find({"time_range": time_range})
+
+    def process_track(track):
+        try:
+            song_path = search_song(track["name"], track["artist"])
+            lyrics = get_lyrics(song_path)
+            detected = detect_langs(lyrics)
+            return [(lang.lang, round(lang.prob, 2)) for lang in detected]
+        except Exception:
+            return []
+
+    lang_confidences = defaultdict(list)
+    
+    length = 0
+    with ThreadPoolExecutor(max_workers=50) as executor:
+        futures = []
+        for doc in data:
+            for track in doc.get("topTracks", []):
+                futures.append(executor.submit(process_track, track))
+                length += 1
+
+        for future in as_completed(futures):
+            for lang, conf in future.result():
+                lang_confidences[lang].append(conf)
+
+    # Average confidence
+    avg_confidences = {
+        lang: round(sum(scores) / length, 4)
+        for lang, scores in lang_confidences.items()
+    }
+
+    avg_confidences_names = {
+        get_language_name(lang): round(conf * 100, 4)
+        for lang, conf in avg_confidences.items()
+    }
+ 
+    return avg_confidences_names
+
+# Function to search for a song by title and artist
+def search_song(song_title, artist_name):
+    # Genius API Base URL and Access Token
+    GENIUS_ACCESS_TOKEN = os.getenv("GENIUS_ACCESS_TOKEN")
+    BASE_URL = "https://api.genius.com"
+    search_url = f"{BASE_URL}/search"
+
+    params = {'q': f'{song_title} {artist_name}'}
+    headers = {'Authorization': f'Bearer {GENIUS_ACCESS_TOKEN}'}
+
+    response = requests.get(search_url, params=params, headers=headers)
+    json_data = response.json()
+
+        # Check if we got results from the API
+    if json_data['response']['hits']:
+        song_path = json_data['response']['hits'][0]['result']['path']
+        return song_path
+    else:
+        raise ValueError("Song not found in Genius database")
+
+# Function to get lyrics from the song URL
+def get_lyrics(song_path):
+    song_url = f"https://genius.com{song_path}"
+    print(song_url)
+    page = requests.get(song_url)
+    soup = BeautifulSoup(page.text, 'html.parser')
+    lyrics = ""
+    # Find the lyrics on the page- NEEDS FIXING
+    lyrics_container = soup.find_all('div', attrs={'data-lyrics-container': 'true'})
+    for element in lyrics_container:
+        lyrics += element.get_text() + "\n"
+    class_prefix = "ReferentFragment-desktop-sc"
+    lyrics_elements = soup.find_all(class_=re.compile(f"^{class_prefix}")) 
+        
+    for element in lyrics_elements:
+        lyrics += element.get_text() + "\n"
+
+    if lyrics:
+        return lyrics
+    else:
+        return "Lyrics not found."
 
 if __name__ == "__main__":
     app.run(debug=True)

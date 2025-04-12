@@ -11,10 +11,11 @@ const Dashboard = () => {
         artistPopularity: 0, trackPopularity: 0})
     const location = useLocation();
     const [timeRange, setTimeRange] = useState("long_term");
+    const [userId, setUserId] = useState(null);
 
     const fetchUserData = useCallback(async () => {
         const params = new URLSearchParams(window.location.search);
-        const userId = params.get("user_id");
+        setUserId(params.get("user_id"));
 
         if (!userId) {
             console.error("No user_id found in URL");
@@ -36,7 +37,7 @@ const Dashboard = () => {
         } catch (error) {
             console.error("Error fetching data:", error);
         }
-    }, [timeRange]);
+    }, [timeRange, userId]);
 
         // refetch when time range changes
         useEffect(() => { fetchUserData();}, [fetchUserData]);
@@ -119,7 +120,7 @@ const Dashboard = () => {
                         <span>Loading...</span>
                     )}
                     <Link 
-                        to="/dashboard/language" 
+                        to={`/dashboard/language?user_id=${userId}`} 
                         className="px-6 py-2 bg-gray-600 text-white rounded-full transition 
                         duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
                     >       
