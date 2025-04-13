@@ -11,7 +11,6 @@ const Dashboard = () => {
         artistPopularity: 0, trackPopularity: 0})
     const location = useLocation();
     const [timeRange, setTimeRange] = useState("long_term");
-    const [userId, setUserId] = useState(null);
 
     const fetchUserData = useCallback(async () => {
         const params = new URLSearchParams(window.location.search);
@@ -37,6 +36,7 @@ const Dashboard = () => {
         } catch (error) {
             console.error("Error fetching data:", error);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [timeRange]);
 
         // refetch when time range changes
@@ -47,8 +47,43 @@ const Dashboard = () => {
         <div className="min-h-screen bg-black text-white">
             {/* Navigation Bar */}
             <nav className="bg-black p-4 flex justify-between items-center shadow-lg">
-                <div className="flex items-center justify-center space-x-4 ml-3">
+                <div className="flex items-center justify-center space-x-6 ml-10">
                     <img src={SpotilyticsIcon} alt="logo" width="150" height="200" />
+                
+                    {user ? (
+                        <Link 
+                            to={`/dashboard?user_id=${user.id}`}
+                            className="px-6 py-2 bg-gray-900 text-white rounded-full transition 
+                            duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
+                        >
+                            Overview
+                        </Link>
+                    ) : (
+                        <span>Loading...</span>
+                    )}
+                    {user ? (
+                        <Link 
+                            to={`/dashboard/language?user_id=${user.id}`}
+                            className="px-6 py-2 bg-gray-900 text-white rounded-full transition 
+                            duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
+                        >
+                            Language
+                        </Link>
+                    ) : (
+                        <span>Loading...</span>
+                    )}
+                    {user ? (
+                        <Link 
+                            to={`/dashboard/playlists?user_id=${user.id}`}
+                            className="px-6 py-2 bg-gray-900 text-white rounded-full transition 
+                            duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
+                        >
+                            Playlists
+                        </Link>
+                    ) : (
+                        <span>Loading...</span>
+                    )}
+                    
                 </div>
 
                 {/* User profile pic and name */}
@@ -74,30 +109,30 @@ const Dashboard = () => {
 
 
 
-                    <div className="flex justify-between space-x-6 ml-32 mr-16">
-                        <h1 className="text-5xl font-bold mt-16 ml-16 w-1/2">
+                    <div className="flex justify-between space-x-6 ml-32 mt-16 mr-16">
+                        <h1 className="text-5xl font-bold ml-16 w-1/3">
                             Welcome, {user?.display_name}!
                         </h1>
 
-                        <div className="flex space-x-4 mt-6 ml-16">
+                        <div className="flex space-x-4 mt-6 ml-16 max-h-[130px] w-1/4">
                             <button 
                                 onClick={() => setTimeRange("short_term")} 
-                                className={`px-4 py-2 rounded-full ${timeRange === "short_term" ? "bg-green-500" : "bg-gray-900"} text-white`}>
+                                className={`px-4 py-2 max-w-[110px] rounded-full ${timeRange === "short_term" ? "bg-green-500" : "bg-gray-900"} text-white`}>
                                 Last 3 Months
                             </button>
                             <button 
                                 onClick={() => setTimeRange("medium_term")} 
-                                className={`px-4 py-2 rounded-full ${timeRange === "medium_term" ? "bg-green-500" : "bg-gray-900"} text-white`}>
+                                className={`px-4 py-2 max-w-[110px] rounded-full ${timeRange === "medium_term" ? "bg-green-500" : "bg-gray-900"} text-white`}>
                                 Last 6 Months
                             </button>
                             <button 
                                 onClick={() => setTimeRange("long_term")} 
-                                className={`px-4 py-2 rounded-full ${timeRange === "long_term" ? "bg-green-500" : "bg-gray-900"} text-white`}>
+                                className={`px-4 py-2 max-w-[110px] rounded-full ${timeRange === "long_term" ? "bg-green-500" : "bg-gray-900"} text-white`}>
                                 Last 12 Months
                             </button>
                         </div>
-                        <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/3">
-                            <h2 className="text-2xl font-bold text-white mb-4">Popularity Ratings</h2>
+                        <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/4 max-h-[130px]">
+                            <h2 className="text-2xl font-bold text-white mb-1">Popularity Ratings</h2>
                             <p className="text-gray-300">🎵 Top Songs Popularity: {topData.trackPopularity}/100</p>
                             <p className="text-gray-300">🎤 Top Artists Popularity: {topData.artistPopularity}/100</p>
                         </div>
@@ -106,39 +141,6 @@ const Dashboard = () => {
                     )}
                 </div>
 
-
-                <div className="flex space-x-6 mt-10 ml-32">
-                    {user ? (
-                        <Link 
-                            to={`/dashboard?user_id=${user.id}`}
-                            className="px-6 py-2 bg-gray-900 text-white rounded-full transition 
-                            duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
-                        >
-                            Overview
-                        </Link>
-                    ) : (
-                        <span>Loading...</span>
-                    )}
-                    <Link 
-                        to={`/dashboard/language?user_id=${userId}`} 
-                        className="px-6 py-2 bg-gray-900 text-white rounded-full transition 
-                        duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
-                    >       
-                        Language
-                    </Link>
-                    {user ? (
-                        <Link 
-                            to={`/dashboard/playlists?user_id=${user.id}`}
-                            className="px-6 py-2 bg-gray-900 text-white rounded-full transition 
-                            duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
-                        >
-                            Playlists
-                        </Link>
-                    ) : (
-                        <span>Loading...</span>
-                    )}
-                    
-                </div>
 
                 <div>
                     {location.pathname === "/dashboard" && (
