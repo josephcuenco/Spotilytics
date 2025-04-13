@@ -5,14 +5,22 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recha
 const Language = () => {
   
   const [topSongData, setTopSongData] = useState('');
-  const [timeRange, setTimeRange] = useState("long_term");
-  const [uncertain, setUncertain] = useState(0);
+  const [timeRange, setTimeRange] = useState('long_term');
   const [loading, setLoading] = useState(false);
 
+  
   const COLORS = [
-    '#0088FE', '#00C49F', '#FFBB28', '#FF8042',
-    '#AF19FF', '#FF4560', '#FF6384', '#36A2EB',
-    '#4BC0C0', '#9966FF', '#C9CBCF', '#F67019'
+  '#1DB954', // Spotify green
+  '#535353', // Spotify dark gray
+  '#FFFFFF', // white
+  '#66D36E', // bright green accent
+  '#23A55A', // emerald accent
+  '#3E3E3E', // mid gray
+  '#2D2D2D', // deeper black/gray
+  '#5CDB95', // mint green variation
+  '#1ED760', // Spotify light green
+  '#0D0D0D', // almost black
+  '#28A745'  // subtle green
   ];
   
   
@@ -21,11 +29,11 @@ const Language = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
+
         const response = await fetch(
           `http://localhost:5000/song-lyrics?time_range=${encodeURIComponent(timeRange)}`
         );
     
-        console.log(response);
         const data = await response.json();
         let sum = 0;
         for (const lang in data.languages) {
@@ -37,10 +45,8 @@ const Language = () => {
           }
         }
 
-        if (sum < 100) {
-          setUncertain(100 - sum);
-        }
-        data.languages['Uncertain'] = uncertain.toFixed(2);
+        const localUncertain = Math.max(0, 100 - sum);
+        data.languages["Uncertain"] = Number(localUncertain.toFixed(2));
     
         const topSongData = data.languages;
 
@@ -103,6 +109,8 @@ const Language = () => {
                   cy="50%"
                   outerRadius={100}
                   label
+                  stroke="none" // 👈 removes the white border
+                  labelLine={false} // 👈 removes the line from the label
                 >
                   {Object.keys(topSongData).map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
