@@ -1,5 +1,4 @@
 from collections import defaultdict
-import datetime
 import os
 import time
 from flask import Flask, redirect, request, jsonify, url_for
@@ -15,6 +14,7 @@ from langdetect import detect_langs
 from babel import Locale
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
+from multiprocessing import Manager
 
 load_dotenv()
 
@@ -204,7 +204,6 @@ def get_song_lyric_lang_data():
 
     try:
         avg_lang_confidences= get_top_songs_language_distribution(time_range)
-       # print(avg_lang_confidences)
 
         return jsonify({"languages": dict(avg_lang_confidences)})
 
@@ -224,32 +223,49 @@ def get_language_name(lang_code):
         return "Error Determining Language Name"
     
     
+def process_track(track, lyrics_cache):
+    try:
+        key = (track["name"].lower(), track["artist"].lower())
+        if key in lyrics_cache:
+            lyrics = lyrics_cache[key]
+        else:
+            song_path = search_song(track["name"], track["artist"])
+            lyrics = get_lyrics1(track["name"], track["artist"])
+            if not lyrics:
+                lyrics = get_lyrics2(song_path)
+            lyrics_cache[key] = lyrics  # cache it
+
+        detected = detect_langs(lyrics)
+        return [(lang.lang, round(lang.prob, 2)) for lang in detected]
+    except Exception:
+        return []
+
 def get_top_songs_language_distribution(time_range):
     # parse through top songs from mongoDB and get the languages 
     data = collection.find({"time_range": time_range})
 
-    def process_track(track):
-        try:
-            song_path = search_song(track["name"], track["artist"])
-            lyrics = get_lyrics(song_path)
-            detected = detect_langs(lyrics)
-            return [(lang.lang, round(lang.prob, 2)) for lang in detected]
-        except Exception:
-            return []
-
     lang_confidences = defaultdict(list)
+    seen_tracks = set()
+    lyrics_cache = {}
+
+    def wrapped_process(track):
+        key = (track["name"].lower(), track["artist"].lower())
+        if key in seen_tracks:
+            return []
+        seen_tracks.add(key)
+        return process_track(track, lyrics_cache)
     
     length = 0
-    with ThreadPoolExecutor(max_workers=50) as executor:
+    with ThreadPoolExecutor(max_workers=10) as executor:
         futures = []
         for doc in data:
             for track in doc.get("topTracks", []):
-                futures.append(executor.submit(process_track, track))
-                length += 1
+                futures.append(executor.submit(wrapped_process, track))
 
         for future in as_completed(futures):
             for lang, conf in future.result():
                 lang_confidences[lang].append(conf)
+                length += 1
 
     # Average confidence
     avg_confidences = {
@@ -261,8 +277,18 @@ def get_top_songs_language_distribution(time_range):
         get_language_name(lang): round(conf * 100, 4)
         for lang, conf in avg_confidences.items()
     }
- 
     return avg_confidences_names
+
+def get_lyrics1(track, artist):
+    url = f"https://api.lyrics.ovh/v1/{artist}/{track}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        lyrics = response.json().get("lyrics")
+        if lyrics is not None:
+            lyrics = lyrics.replace('\n\n','\n')
+    else:
+        lyrics = None  # Lyrics not found
+    return lyrics
 
 # Function to search for a song by title and artist
 def search_song(song_title, artist_name):
@@ -277,7 +303,7 @@ def search_song(song_title, artist_name):
     response = requests.get(search_url, params=params, headers=headers)
     json_data = response.json()
 
-        # Check if we got results from the API
+     # Check if we got results from the API
     if json_data['response']['hits']:
         song_path = json_data['response']['hits'][0]['result']['path']
         return song_path
@@ -285,26 +311,39 @@ def search_song(song_title, artist_name):
         raise ValueError("Song not found in Genius database")
 
 # Function to get lyrics from the song URL
-def get_lyrics(song_path):
+def get_lyrics2(song_path):
     song_url = f"https://genius.com{song_path}"
     print(song_url)
     page = requests.get(song_url)
     soup = BeautifulSoup(page.text, 'html.parser')
     lyrics = ""
-    # Find the lyrics on the page- NEEDS FIXING
-    lyrics_container = soup.find_all('div', attrs={'data-lyrics-container': 'true'})
-    for element in lyrics_container:
-        lyrics += element.get_text() + "\n"
-    class_prefix = "ReferentFragment-desktop-sc"
-    lyrics_elements = soup.find_all(class_=re.compile(f"^{class_prefix}")) 
-        
-    for element in lyrics_elements:
-        lyrics += element.get_text() + "\n"
 
-    if lyrics:
-        return lyrics
+    lyrics_containers = soup.find_all('div', attrs={'data-lyrics-container': 'true'})
+    if lyrics_containers:
+        for element in lyrics_containers:
+            lyrics += element.get_text(separator="\n").strip() + "\n"
+
+    clean = clean_lyrics(lyrics)
+
+    if clean:
+        return clean
     else:
         return "Lyrics not found."
+
+def clean_lyrics(raw_lyrics):
+    # Remove everything before the first section header ([Intro], [Verse], etc.)
+    lyrics_start = re.search(r"\[[^\]]+\]", raw_lyrics)
+    if lyrics_start:
+        raw_lyrics = raw_lyrics[lyrics_start.start():]
+
+    # Remove section headers like [Chorus], [Verse 1]
+    cleaned = re.sub(r"\[.*?\]", "", raw_lyrics)
+
+    #Remove excess newlines and whitespace
+    cleaned = re.sub(r"\n{2,}", "\n", cleaned).strip()
+
+    return cleaned
+
 
 if __name__ == "__main__":
     app.run(debug=True)
