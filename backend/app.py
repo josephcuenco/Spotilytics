@@ -223,13 +223,18 @@ def get_language_name(lang_code):
         return "Error Determining Language Name"
     
     
-def process_track(track):
+def process_track(track, lyrics_cache):
     try:
-        song_path = search_song(track["name"], track["artist"])
-        if get_lyrics1(track["name"], track["artist"]):
-            lyrics = get_lyrics1(track["name"], track["artist"])
+        key = (track["name"].lower(), track["artist"].lower())
+        if key in lyrics_cache:
+            lyrics = lyrics_cache[key]
         else:
-            lyrics = get_lyrics2(song_path)
+            song_path = search_song(track["name"], track["artist"])
+            lyrics = get_lyrics1(track["name"], track["artist"])
+            if not lyrics:
+                lyrics = get_lyrics2(song_path)
+            lyrics_cache[key] = lyrics  # cache it
+
         detected = detect_langs(lyrics)
         return [(lang.lang, round(lang.prob, 2)) for lang in detected]
     except Exception:
@@ -240,25 +245,34 @@ def get_top_songs_language_distribution(time_range):
     data = collection.find({"time_range": time_range})
 
     lang_confidences = defaultdict(list)
+    seen_tracks = set()
+    lyrics_cache = {}
+
+    def wrapped_process(track):
+        key = (track["name"].lower(), track["artist"].lower())
+        if key in seen_tracks:
+            return []
+        seen_tracks.add(key)
+        return process_track(track, lyrics_cache)
     
     length = 0
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = []
         for doc in data:
             for track in doc.get("topTracks", []):
-                futures.append(executor.submit(process_track, track))
-                length += 1
+                futures.append(executor.submit(wrapped_process, track))
 
         for future in as_completed(futures):
             for lang, conf in future.result():
                 lang_confidences[lang].append(conf)
-
+                length += 1
 
     # Average confidence
     avg_confidences = {
         lang: round(sum(scores) / length, 4)
         for lang, scores in lang_confidences.items()
     }
+
     avg_confidences_names = {
         get_language_name(lang): round(conf * 100, 4)
         for lang, conf in avg_confidences.items()
@@ -273,7 +287,7 @@ def get_lyrics1(track, artist):
         if lyrics is not None:
             lyrics = lyrics.replace('\n\n','\n')
     else:
-        lyrics = None
+        lyrics = None  # Lyrics not found
     return lyrics
 
 # Function to search for a song by title and artist
