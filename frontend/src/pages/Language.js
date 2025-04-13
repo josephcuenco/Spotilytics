@@ -73,7 +73,7 @@ const Language = () => {
         <button 
             onClick={() => setTimeRange("short_term")} 
             className={`px-4 py-2 max-w-[110px] rounded-full ${timeRange === "short_term" ? "bg-green-500" : "bg-gray-900"} text-white`}>
-              Last 3 Months
+              Last Month
           </button>
           <button 
             onClick={() => setTimeRange("medium_term")} 
