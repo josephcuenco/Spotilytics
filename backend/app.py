@@ -29,7 +29,7 @@ CORS(app)
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 client = MongoClient(MONGO_URI)
 db = client["Spotilytics"]      # Database name
-collection = db["users"]    # Collection for storing users and token info
+collection = db["userTopSongData"]    # Collection for storing users and token info
 
 sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIFY_CLIENT_ID"),
@@ -135,10 +135,10 @@ def get_user_top_data():
     sp = get_spotify_client(user_id)
 
     # Check if data already exists in MongoDB for caching
-    # existing_data = collection.find_one({"user_id": user_id, "time_range": time_range})
-    # if existing_data:
-    #     existing_data["_id"] = str(existing_data["_id"])  # Convert ObjectId to string
-    #     return jsonify(existing_data)
+    existing_data = collection.find_one({"user_id": user_id, "time_range": time_range})
+    if existing_data:
+        existing_data["_id"] = str(existing_data["_id"])  # Convert ObjectId to string
+        return jsonify(existing_data)
 
     # Fetch top tracks
     top_tracks = sp.current_user_top_tracks(limit=50, time_range=time_range)
@@ -169,11 +169,12 @@ def get_user_top_data():
         "artistPopularity": round(average_artist_popularity, 2)
     }
 
-    # Store data in MongoDB
-    # inserted_doc = collection.insert_one(data_to_store)
-    # data_to_store["_id"] = str(inserted_doc.inserted_id)  # Convert ObjectId to string before returning
+    collection.update_one(
+    {"user_id": user_id, "time_range": time_range},
+    {"$set": data_to_store},
+    upsert=True
+)
 
-    
     return jsonify(data_to_store)
 
 @app.route("/user-playlists")
