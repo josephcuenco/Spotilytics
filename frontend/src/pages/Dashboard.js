@@ -2,7 +2,7 @@ import { React, useEffect, useState, useCallback } from "react";
 import { Routes, Route, Link , useLocation } from "react-router-dom";
 import axios from "axios";
 import SpotilyticsIcon from "../images/Spotilytics.png";
-import Language from "./Language";
+import TopSongs from "./TopSongs";
 import Playlists from "./Playlists";
 
 const Dashboard = () => {
@@ -63,11 +63,11 @@ const Dashboard = () => {
                     )}
                     {user ? (
                         <Link 
-                            to={`/dashboard/language?user_id=${user.id}`}
+                            to={`/dashboard/topsongs?user_id=${user.id}`}
                             className="px-6 py-2 bg-gray-900 text-white rounded-full transition 
                             duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
                         >
-                            Language
+                            Top Tracks
                         </Link>
                     ) : (
                         <span>Loading...</span>
@@ -133,7 +133,7 @@ const Dashboard = () => {
                         </div>
                         <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/4 max-h-[130px]">
                             <h2 className="text-2xl font-bold text-white mb-1">Popularity Ratings</h2>
-                            <p className="text-gray-300">🎵 Top Songs Popularity: {topData.trackPopularity}/100</p>
+                            <p className="text-gray-300">🎵 Top Tracks Popularity: {topData.trackPopularity}/100</p>
                             <p className="text-gray-300">🎤 Top Artists Popularity: {topData.artistPopularity}/100</p>
                         </div>
 
@@ -198,7 +198,7 @@ const Dashboard = () => {
 
 
                 <Routes>
-                    <Route path="language" element={<Language />} />
+                    <Route path="topsongs" element={<TopSongs />} />
                     <Route path="playlists" element={<Playlists />} />
                     
                 </Routes>
