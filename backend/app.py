@@ -183,17 +183,30 @@ def get_user_playlists():
     sp = get_spotify_client(user_id) 
 
     playlists_data = sp.current_user_playlists()
-    playlists = [
-        {
+    playlists = []
+
+    for p in playlists_data["items"]:
+        playlist_id = p["id"]
+        # Fetch tracks from the playlist
+        tracks_response = sp.playlist_tracks(playlist_id, limit=50) 
+        tracks = [
+            {
+                "track_name": t["track"]["name"],
+                "artist_name": t["track"]["artists"][0]["name"]
+            }
+            for t in tracks_response["items"] if t.get("track")  # handle null cases
+        ]
+
+        playlists.append({
             "name": p["name"],
             "image": p["images"][0]["url"] if p["images"] else None,
             "id": p["id"],
             "tracks_total": p["tracks"]["total"],
-            "url": p["external_urls"]["spotify"]
-        }
-        for p in playlists_data["items"]
-    ]
+            "url": p["external_urls"]["spotify"],
+            "tracks_preview": tracks
+        })
     return jsonify(playlists)
+    
 
 @app.route("/song-lyrics")
 def get_song_lyric_lang_data():
