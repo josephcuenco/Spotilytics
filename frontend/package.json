@@ -5,6 +5,7 @@
   "dependencies": {
     "axios": "^1.7.9",
     "cra-template": "1.2.0",
+    "lucide": "^0.488.0",
     "mapbox-gl": "^1.13.3",
     "plotly.js": "^3.0.0",
     "react": "^19.0.0",
@@ -13,7 +14,7 @@
     "react-plotly.js": "^2.6.0",
     "react-router-dom": "^7.1.5",
     "react-scripts": "5.0.1",
-    "recharts": "^2.15.1",
+    "recharts": "^2.15.2",
     "web-vitals": "^4.2.4"
   },
   "scripts": {
