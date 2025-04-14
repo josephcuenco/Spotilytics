@@ -1,11 +1,11 @@
-import { React, useEffect, useState, useCallback } from "react";
+import { React, useEffect, useState, useCallback, useRef} from "react";
 import { Routes, Route, Link , useLocation } from "react-router-dom";
 import axios from "axios";
 import SpotilyticsIcon from "../images/Spotilytics.png";
 import TopSongs from "./TopSongs";
 import Playlists from "./Playlists";
 import { Info } from "lucide-react";
-
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
     const [user, setUser] = useState(null);
@@ -14,6 +14,27 @@ const Dashboard = () => {
     const location = useLocation();
     const [timeRange, setTimeRange] = useState("long_term");
     const [activePage, setActivePage] = useState("")
+    const dropdownRef = useRef(null); 
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+          if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+            setOpen(false);
+          }
+        };
+    
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+          document.removeEventListener("mousedown", handleClickOutside);
+        };
+      }, []);
+
+    const [open, setOpen] = useState(false);
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        navigate("/");
+    };
 
     const fetchUserData = useCallback(async () => {
         const params = new URLSearchParams(window.location.search);
@@ -97,12 +118,27 @@ const Dashboard = () => {
 
                 {/* User profile pic and name */}
                 {user ? (
-                    <div className="flex items-center space-x-4 mr-10 font-semibold">
-                        {user.images?.[0]?.url && (
-                            <img src={user.images[0].url} alt="Profile" className="w-10 h-10 rounded-full" />
-                        )}
-                        <span>{user.display_name}</span>
-                    </div>
+                        <div>
+                        {/* Profile image (click to toggle dropdown) */}
+                            <div ref={dropdownRef} className="flex items-center space-x-5 mr-8 font-semibold">
+                                {open && (
+                                <div className="bg-green-500 rounded-md shadow-lg">
+                                    <button
+                                    onClick={handleLogout}
+                                    className="px-4 py-2 text-sm text-black hover:bg-green-400 hover:text-black rounded-md"
+                                    >
+                                    Logout
+                                    </button>
+                                </div>
+                                )}
+
+                                {user.images?.[0]?.url && (
+                                    <img src={user.images[0].url} alt="Profile" className="w-10 h-10 transform transition-transform duration-200 hover:scale-110 rounded-full cursor-pointer" onClick={() => setOpen(!open)} />
+                                )}
+                                <span>{user.display_name}</span>
+                            </div>
+                            
+                        </div>
                 ) : (
                     <a href="http://localhost:5000/login" className="text-sm text-green-400">
                         Login with Spotify
@@ -127,20 +163,20 @@ const Dashboard = () => {
                         <div className="flex space-x-4 mb-3 mt-3 ml-16 max-h-[130px] w-1/4">
                             <button 
                                 onClick={() => setTimeRange("short_term")} 
-                                className={`px-4 py-2 max-w-[110px] rounded-full ${timeRange === "short_term" ? "bg-green-500 text-black" : "bg-gray-900"} transition 
-                                    duration-300 hover:bg-green-500 hover:text-black text-white font-semibold`}>
+                                className={`px-4 py-2 max-w-[110px] rounded-full ${timeRange === "short_term" ? "bg-green-500 text-black" : "bg-gray-900 text-white"} transition 
+                                    duration-300 hover:bg-green-500 hover:text-black font-semibold`}>
                                 Last Month
                             </button>
                             <button 
                                 onClick={() => setTimeRange("medium_term")} 
-                                className={`px-4 py-2 max-w-[110px] rounded-full ${timeRange === "medium_term" ? "bg-green-500 text-black" : "bg-gray-900"} transition 
-                                    duration-300 hover:bg-green-500 hover:text-black text-white font-semibold`}>
+                                className={`px-4 py-2 max-w-[110px] rounded-full ${timeRange === "medium_term" ? "bg-green-500 text-black" : "bg-gray-900 text-white"} transition 
+                                    duration-300 hover:bg-green-500 hover:text-black font-semibold`}>
                                 Last 6 Months
                             </button>
                             <button 
                                 onClick={() => setTimeRange("long_term")} 
-                                className={`px-4 py-2 max-w-[110px] rounded-full ${timeRange === "long_term" ? "bg-green-500 text-black" : "bg-gray-900"}  transition 
-                                    duration-300 hover:bg-green-500 hover:text-black text-white font-semibold`}>
+                                className={`px-4 py-2 max-w-[110px] rounded-full ${timeRange === "long_term" ? "bg-green-500 text-black" : "bg-gray-900 text-white"}  transition 
+                                    duration-300 hover:bg-green-500 hover:text-black font-semibold`}>
                                 Last 12 Months
                             </button>
                         </div>
@@ -151,7 +187,7 @@ const Dashboard = () => {
                             <div className="absolute top-3 right-3">
                                 <div className="relative group">
                                 <Info className="w-4 h-4 text-white cursor-pointer" />
-                                <div className="absolute right-0 mt-1 w-56 bg-green-400 text-black text-md font-semibold 
+                                <div className="absolute right-0 mt-1 w-56 bg-green-500 text-black text-md font-semibold 
                                 rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity 
                                 duration-200 z-10 p-2 pointer-events-none">
                                 Popularity is rated from 0 to 100 based on Spotify's internal metrics.
