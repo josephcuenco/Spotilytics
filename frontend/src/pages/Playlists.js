@@ -44,28 +44,28 @@ useEffect(() => {
                 <div>
                     <h2 className="text-3xl font-bold mb-6">Pick a playlist!</h2>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                {playlists.map((playlist, index) => (
-                                    <div
-                                    key={index}
-                                    onClick={() => {setSelectedPlaylist(playlist);
-                                        setPlaylistselected(true);
-                                    }}
-                                    className="cursor-pointer m-h-[300px] bg-gray-900 p-4 rounded-lg shadow-md hover:shadow-lg hover:bg-green-700 transition duration-300"
-                                    >
-                                    {playlist.image && (
-                                        <img
-                                        src={playlist.image}
-                                        alt={playlist.name}
-                                        className="w-full h-10 object-cover rounded mb-4"
-                                        style={{ width: '100%', height: '300px', aspectRatio: '1/1' }}
-                                        />
-                                    )}
-                                    <h3 className="text-xl font-semibold">{playlist.name}</h3>
-                                    <p className="text-gray-400">{playlist.tracks_total} tracks</p>
-                                    </div>
-                                ))}
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {playlists.map((playlist, index) => (
+                      <div
+                      key={index}
+                         onClick={() => {setSelectedPlaylist(playlist);
+                            setPlaylistselected(true);
+                        }}
+                       className="cursor-pointer m-h-[300px] bg-gray-900 p-4 rounded-lg shadow-md hover:shadow-lg hover:bg-green-700 transition duration-300"
+                           >
+                        {playlist.image && (
+                          <img
+                            src={playlist.image}
+                        alt={playlist.name}
+                         className="w-full h-10 object-cover rounded mb-4"
+                         style={{ width: '100%', height: '300px', aspectRatio: '1/1' }}
+                            />
+                         )}
+                           <h3 className="text-xl font-semibold">{playlist.name}</h3>
+                           <p className="text-gray-400">{playlist.tracks_total} tracks</p>
                             </div>
+                       ))}
+                     </div>
                  </div>
           )
             )}
