@@ -13,6 +13,7 @@ const Dashboard = () => {
         artistPopularity: 0, trackPopularity: 0})
     const location = useLocation();
     const [timeRange, setTimeRange] = useState("long_term");
+    const [activePage, setActivePage] = useState("")
 
     const fetchUserData = useCallback(async () => {
         const params = new URLSearchParams(window.location.search);
@@ -55,8 +56,10 @@ const Dashboard = () => {
                     {user ? (
                         <Link 
                             to={`/dashboard?user_id=${user.id}`}
-                            className="px-6 py-2 bg-gray-900 text-white font-semibold rounded-full transition 
-                            duration-300 hover:bg-green-500 hover:text-black shadow-md hover:shadow-lg"
+                            onClick={() => setActivePage("overview")}
+                            className={`px-6 py-2 bg-gray-900 text-white font-semibold rounded-full transition 
+                            duration-300 hover:bg-green-500 hover:text-black shadow-md hover:shadow-lg
+                            ${activePage === "overview" ? "bg-green-500 text-black" : "bg-gray-900"}`}
                         >
                             Overview
                         </Link>
@@ -66,8 +69,10 @@ const Dashboard = () => {
                     {user ? (
                         <Link 
                             to={`/dashboard/topsongs?user_id=${user.id}`}
-                            className="px-6 py-2 bg-gray-900 text-white font-semibold rounded-full transition 
-                            duration-300 hover:bg-green-500 hover:text-black shadow-md hover:shadow-lg"
+                            onClick={() => setActivePage("top_tracks")}
+                            className={`px-6 py-2 bg-gray-900 text-white font-semibold rounded-full transition 
+                            duration-300 hover:bg-green-500 hover:text-black shadow-md hover:shadow-lg
+                            ${activePage === "top_tracks" ? "bg-green-500 text-black" : "bg-gray-900"}`}
                         >
                             Top Tracks
                         </Link>
@@ -77,8 +82,10 @@ const Dashboard = () => {
                     {user ? (
                         <Link 
                             to={`/dashboard/playlists?user_id=${user.id}`}
-                            className="px-6 py-2 bg-gray-900 text-white font-semibold rounded-full transition 
-                            duration-300 hover:bg-green-500 hover:text-black shadow-md hover:shadow-lg"
+                            onClick={() => setActivePage("playlists")}
+                            className={`px-6 py-2 bg-gray-900 text-white font-semibold rounded-full transition 
+                            duration-300 hover:bg-green-500 hover:text-black shadow-md hover:shadow-lg
+                            ${activePage === "playlists" ? "bg-green-500 text-black" : "bg-gray-900"}`}
                         >
                             Playlists
                         </Link>
@@ -111,8 +118,9 @@ const Dashboard = () => {
 
 
 
-                    <div className="flex justify-between space-x-6 ml-32 mt-8 mr-16">
-                        <h1 className="text-5xl font-bold ml-16 mt-8 w-1/3">
+                    <div className="flex justify-between items-center space-x-6 ml-26 mt-8 mr-16">
+                        <img src={user?.images[0].url} alt="Profile" className="w-20 h-20 ml-20 rounded-full" />
+                        <h1 className="text-5xl font-bold ml-16 w-1/3">
                             Welcome, {user?.display_name}!
                         </h1>
 
