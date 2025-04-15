@@ -206,7 +206,59 @@ def get_user_playlists():
             "tracks_preview": tracks
         })
     return jsonify(playlists)
+
+@app.route("/playlist-lyrics")
+def get_playlist_lyric_lang_data():
+    playlist_id = request.args.get("playlist_id")
+    user_id = request.args.get("user_id")
+
+    if not playlist_id or not user_id:
+        return jsonify({"error": "playlist_id and user_id are required"}), 400
+
+    try:
+        sp = get_spotify_client(user_id)
+        tracks_response = sp.playlist_tracks(playlist_id, limit=50)
+        tracks = [
+            {
+                "name": t["track"]["name"],
+                "artist": t["track"]["artists"][0]["name"]
+            }
+            for t in tracks_response["items"] if t.get("track")
+        ]
+
+        lyrics_cache = {}
+        seen_tracks = set()
+        lang_confidences = defaultdict(list)
+        length = 0
+
+        def wrapped_process(track):
+            key = (track["name"].lower(), track["artist"].lower())
+            if key in seen_tracks:
+                return []
+            seen_tracks.add(key)
+            return process_track(track, lyrics_cache)
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(wrapped_process, t) for t in tracks]
+            for future in as_completed(futures):
+                for lang, conf in future.result():
+                    lang_confidences[lang].append(conf)
+                    length += 1
+
+        avg_confidences = {
+            lang: round(sum(scores) / length, 4)
+            for lang, scores in lang_confidences.items()
+        }
+
+        avg_confidences_names = {
+            get_language_name(lang): round(conf * 100, 4)
+            for lang, conf in avg_confidences.items()
+        }
+
+        return jsonify({"languages": avg_confidences_names})
     
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500    
 
 @app.route("/song-lyrics")
 def get_song_lyric_lang_data():
