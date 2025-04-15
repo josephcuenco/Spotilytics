@@ -8,9 +8,12 @@ const TopSongs = () => {
   const [languageDistribution, setLanguageDistribution] = useState('');
   const [timeRange, setTimeRange] = useState('long_term');
   const [loading, setLoading] = useState(false);
-  const [topData, setTopData] = useState({ topTracks: []})
-  const [testVar, setTestVar] = useState(0)
-  const testProfanity = [{"name": "test", "avgProf": 10, "avgWord": 100}];
+  const [topData, setTopData] = useState({ topTracks: []});
+  //const [testVar, setTestVar] = useState(null);
+  const testAvgProfanity = [{"name": "test", "avgProf": 10, "avgWord": 100}];
+  const testProfaneTracks = [{"name": "Song 1", "profanity_count": 10}, {"name": "Song 2", "profanity_count": 8},
+                             {"name": "Song 3", "profanity_count": 7}, {"name": "Song 4", "profanity_count": 6},
+                             {"name": "Song 5", "profanity_count": 5}];
   
   const COLORS = [
   '#1DB954', // Spotify green
@@ -65,11 +68,15 @@ const TopSongs = () => {
         setLanguageDistribution('Error fetching top songs.');
       }
 
+      // Profanity Backend Link In Progress
+      /*
       const profan_response = await fetch(
-        `http://localhost:5000/song-lyrics?time_range=${encodeURIComponent(timeRange)}`
+        `http://localhost:5000/song-lyrics/profanity?time_range=${encodeURIComponent(timeRange)}`
       );
 
-      setTestVar(profan_response);
+      const data = await profan_response.json();
+      setTestVar(data);
+      */
       
       setLoading(false);
     };
@@ -145,15 +152,27 @@ const TopSongs = () => {
                 </PieChart>
               </ResponsiveContainer>
 
-              <h2 className="text-2xl font-bold text-white mb-4 mt-10">Profanity Data</h2>
+              <h2 className="text-2xl font-bold text-white mb-4 mt-16">Average Profanity</h2>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={testProfanity}>
+                <BarChart data= {testAvgProfanity}>
                   <XAxis dataKey="name"/>
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="avgProf" fill="#8884d8" />
-                  <Bar dataKey="avgWord" fill="#82ca9d" />
+                  <Bar dataKey="avgProf" fill="#535353" />
+                  <Bar dataKey="avgWord" fill="#1DB954" />
+                </BarChart>
+              </ResponsiveContainer>
+
+              <h2 className="text-2xl font-bold text-white mb-4 mt-16">Most Profane Tracks</h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data= {testProfaneTracks}>
+                  <CartesianGrid strokeDasharray="3"/>
+                  <XAxis dataKey="name"/>
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="profanity_count" fill="#1DB954" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
