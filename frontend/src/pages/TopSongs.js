@@ -105,7 +105,9 @@ const TopSongs = () => {
 
         {loading ? (
           <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/2">
-            <p>Loading...</p>
+            <div className="flex justify-center items-center h-64">
+              <div className="w-12 h-12 border-4 border-green-500 border-dashed rounded-full animate-spin"></div>
+            </div>
           </div>
         ) : ( 
           languageDistribution && (
