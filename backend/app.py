@@ -15,6 +15,7 @@ from babel import Locale
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 from multiprocessing import Manager
+from better_profanity import profanity
 
 load_dotenv()
 
@@ -410,6 +411,53 @@ def clean_lyrics(raw_lyrics):
 
     return cleaned
 
+@app.route("/song-lyrics/profanity")
+def get_song_lyric_profanity_data():
+    # Retrieve time range from query parameters
+    time_range = request.args.get("time_range")
+
+    if not time_range:
+        return jsonify({"error": "Time Range parameter is required"}), 400
+    try:
+        #profanity_data = get_top_songs_profanity(time_range)
+        print("Success")
+        return jsonify([{"name": "test", "avgProf": 10, "avgWord": 100}])
+
+    except ValueError as e:
+        # Catch specific errors like song not found
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        # Catch general errors
+        print(f"Error: {str(e)}")  # Log to console
+        return jsonify({"error": "Failed to fetch lyrics", "details": str(e)}), 500
+    
+
+
+def get_profanity_count(clean_lyrics):
+    censored_lyrics = profanity.censor(clean_lyrics)
+
+    # better-profanity replaces detected profanity with "****" string
+    profanity_count = censored_lyrics.count("****")
+    
+    return profanity_count
+
+# In progress, altering process_track() structure to return song lyrics for profanity analysis
+def gather_lyrics(track, lyrics_cache):
+    try:
+        key = (track["name"].lower(), track["artist"].lower())
+        if key in lyrics_cache:
+            lyrics = lyrics_cache[key]
+        else:
+            song_path = search_song(track["name"], track["artist"])
+            lyrics = get_lyrics1(track["name"], track["artist"])
+            if not lyrics:
+                lyrics = get_lyrics2(song_path)
+            lyrics_cache[key] = lyrics  # cache it
+
+        detected = detect_langs(lyrics)
+        return [(lang.lang, round(lang.prob, 2)) for lang in detected]
+    except Exception:
+        return []
 
 if __name__ == "__main__":
     app.run(debug=True)
