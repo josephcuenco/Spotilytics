@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import axios from 'axios';
 
 
@@ -9,7 +9,8 @@ const TopSongs = () => {
   const [timeRange, setTimeRange] = useState('long_term');
   const [loading, setLoading] = useState(false);
   const [topData, setTopData] = useState({ topTracks: []})
-
+  const [testVar, setTestVar] = useState(0)
+  const testProfanity = [{"name": "test", "avgProf": 10, "avgWord": 100}];
   
   const COLORS = [
   '#1DB954', // Spotify green
@@ -39,11 +40,11 @@ const TopSongs = () => {
         });
          setTopData(topDataResponse.data);
 
-        const response = await fetch(
+        const lang_response = await fetch(
           `http://localhost:5000/song-lyrics?time_range=${encodeURIComponent(timeRange)}`
         );
     
-        const data = await response.json();
+        const data = await lang_response.json();
         let sum = 0;
         for (const lang in data.languages) {
           if (data.languages[lang] < .9) {
@@ -63,6 +64,12 @@ const TopSongs = () => {
       } catch (error) {
         setLanguageDistribution('Error fetching top songs.');
       }
+
+      const profan_response = await fetch(
+        `http://localhost:5000/song-lyrics?time_range=${encodeURIComponent(timeRange)}`
+      );
+
+      setTestVar(profan_response);
       
       setLoading(false);
     };
@@ -102,42 +109,60 @@ const TopSongs = () => {
                           </div>
 
       <div className="flex justify-between space-x-6 mt-16 ml-32 mr-16">
+          {loading ? (
+            <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/2">
+              <p>Loading...</p>
+            </div>
+          ) : ( 
+            <>
+            {languageDistribution && (
+            <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/2">
+              <h2 className="text-2xl font-bold text-white mb-4">Language Distribution</h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={Object.entries(languageDistribution).map(([language, value]) => ({
+                      name: language,
+                      value: value,
+                    }))}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    label
+                    stroke="none" 
+                    labelLine={false}
+                  >
+                    {Object.keys(languageDistribution).map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
 
-        {loading ? (
-          <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/2">
-            <p>Loading...</p>
-          </div>
-        ) : ( 
-          languageDistribution && (
-          <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/2">
-            <h2 className="text-2xl font-bold text-white mb-4">Language Distribution</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={Object.entries(languageDistribution).map(([language, value]) => ({
-                    name: language,
-                    value: value,
-                  }))}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  label
-                  stroke="none" 
-                  labelLine={false}
-                >
-                  {Object.keys(languageDistribution).map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          )
-          )}
+              <h2 className="text-2xl font-bold text-white mb-4 mt-10">Profanity Data</h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={testProfanity}>
+                  <XAxis dataKey="name"/>
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="avgProf" fill="#8884d8" />
+                  <Bar dataKey="avgWord" fill="#82ca9d" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            )}
+            
+
+
+            </>
+            )}
+        
+
 
          <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/2">
          <h2 className="text-3xl font-bold text-white mb-4">Top Tracks</h2>
