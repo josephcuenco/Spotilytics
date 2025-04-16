@@ -14,7 +14,6 @@ from langdetect import detect_langs
 from babel import Locale
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
-from multiprocessing import Manager
 from better_profanity import profanity
 
 load_dotenv()
@@ -30,14 +29,18 @@ CORS(app)
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 client = MongoClient(MONGO_URI)
 db = client["Spotilytics"]      # Database name
-collection = db["userTopSongData"]    # Collection for storing users and token info
+top_songs_collection = db["userTopSongData"]   
+lyrics_collection = db["lyrics"]
+users_collection = db["users"]
 
 sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIFY_CLIENT_ID"),
     client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
     redirect_uri=os.getenv("SPOTIFY_REDIRECT_URI"),
     scope="user-read-private user-read-email user-top-read playlist-read-private playlist-read-collaborative",
-    show_dialog=True
+    show_dialog=True,
+    cache_path=None,
+    cache_handler=None
 )
 
 @app.route('/')
@@ -60,7 +63,7 @@ def callback():
         return "Error: Authorization failed", 400
 
     # Retrieve token info using the provided code
-    token_info = sp_oauth.get_access_token(code)
+    token_info = sp_oauth.get_access_token(code, check_cache=False)
 
     # Use the access token to fetch the current user's Spotify ID
     sp = Spotify(auth=token_info["access_token"])
@@ -68,7 +71,7 @@ def callback():
     user_id = user_data["id"]
 
     # Store token info in MongoDB, keyed by Spotify user_id
-    collection.update_one(
+    users_collection.update_one(
         {"user_id": user_id},
         {"$set": {
             "access_token": token_info["access_token"],
@@ -77,20 +80,19 @@ def callback():
         }},
         upsert=True
     )
-
     # Redirect to your React dashboard with the user_id as a query parameter
     return redirect("http://localhost:3000/dashboard?user_id=" + user_id)
 
 def get_spotify_client(user_id):
     #Retrieve an authenticated Spotify client using token info from MongoDB
-    user = collection.find_one({"user_id": user_id})
+    user = users_collection.find_one({"user_id": user_id})
     if not user:
         return None
 
     # Check if the access token has expired, and refresh if needed
     if time.time() > user["expires_at"]:
         new_token_info = sp_oauth.refresh_access_token(user["refresh_token"])
-        collection.update_one(
+        users_collection.update_one(
             {"user_id": user_id},
             {"$set": {
                 "access_token": new_token_info["access_token"],
@@ -121,22 +123,19 @@ def get_user_profile():
         return jsonify({"error": "Failed to fetch user data", "details": str(e)}), 403
     
 
-@app.route("/user-top")
-def get_user_top_data():
+@app.route("/store-user-top-data")
+def store_user_top_data():
     user_id = request.args.get("user_id")
     if not user_id:
         return jsonify({"error": "user_id parameter is required"}), 400
 
-    # get time range from button, default to long term
-    time_range = request.args.get("time_range", "long_term") 
-    
-    if time_range not in ["short_term", "medium_term", "long_term"]:
-        return jsonify({"error": "invalid time range"}), 400
-    
+    # # get time range from button, default to long term
+    time_range = request.args.get("time_range") 
+
     sp = get_spotify_client(user_id)
 
-    # Check if data already exists in MongoDB for caching
-    existing_data = collection.find_one({"user_id": user_id, "time_range": time_range})
+    # Check if data already exists in MongoDB
+    existing_data = top_songs_collection.find_one({"user_id": user_id, "time_range": time_range})
     if existing_data:
         existing_data["_id"] = str(existing_data["_id"])  # Convert ObjectId to string
         return jsonify(existing_data)
@@ -144,14 +143,16 @@ def get_user_top_data():
     # Fetch top tracks
     top_tracks = sp.current_user_top_tracks(limit=50, time_range=time_range)
     top_tracks_list = [{"name": track["name"], 
-                        "artist": track["artists"][0]["name"], 
+                        "artist": track["artists"][0]["name"],
+                        "lyrics": None, 
+                        "languageDistribution": None,
                         "image": track["album"]["images"][0]["url"] if track["album"]["images"] else None} 
-                       for track in top_tracks["items"]]
+                    for track in top_tracks["items"]]
 
     # Fetch top artists
     top_artists = sp.current_user_top_artists(limit=50, time_range=time_range)
     top_artists_list = [{"name": artist["name"],
-                         "image": artist["images"][0]["url"] if artist["images"] else None} 
+                        "image": artist["images"][0]["url"] if artist["images"] else None} 
                         for artist in top_artists["items"]]
 
     # Compute average track popularity
@@ -170,13 +171,26 @@ def get_user_top_data():
         "artistPopularity": round(average_artist_popularity, 2)
     }
 
-    collection.update_one(
+    top_songs_collection.update_one(
     {"user_id": user_id, "time_range": time_range},
     {"$set": data_to_store},
     upsert=True
-)
+    )
 
     return jsonify(data_to_store)
+
+@app.route("/get-user-top-data")
+def get_user_top_data():
+    user_id = request.args.get("user_id")
+    time_range = request.args.get("time_range")
+    
+    data = top_songs_collection.find_one({"user_id": user_id, "time_range": time_range})
+    if not data:
+        return jsonify({"error": "User not found"}), 404
+
+    data["_id"] = str(data["_id"])  # Convert ObjectId to string
+    return jsonify(data)
+
 
 @app.route("/user-playlists")
 def get_user_playlists():
@@ -289,45 +303,87 @@ def get_language_name(lang_code):
     except:
         return "Error Determining Language Name"
     
-    
-def process_track(track, lyrics_cache):
+
+@app.route("/get-lyrics")
+def get_lyrics():
+    song_name = request.args.get("song_name")
+    artist_name = request.args.get("artist_name")
+
+    if not song_name or not artist_name:
+        return jsonify({"error": "Missing song_name or artist_name"}), 400
+
+    # Check if lyrics already exist
+    existing = lyrics_collection.find_one({
+        "song_name": song_name,
+        "artist_name": artist_name
+    })
+
+    if existing and "lyrics" in existing:
+        existing["_id"] = str(existing["_id"])  # Convert ObjectId to string
+        return jsonify(existing)
+
+    # Fetch lyrics if not in DB
+    song_path = search_song(song_name, artist_name)
+    lyrics = get_lyrics1(song_name, artist_name)
+    if not lyrics:
+        lyrics = get_lyrics2(song_path)
+
+    # Store in DB
+    lyrics_collection.insert_one({
+        "song_name": song_name,
+        "artist_name": artist_name,
+        "lyrics": lyrics
+    })
+
+    return jsonify({"lyrics": lyrics})
+
+
+def process_track(track):
     try:
-        key = (track["name"].lower(), track["artist"].lower())
-        if key in lyrics_cache:
-            lyrics = lyrics_cache[key]
+        # Check MongoDB
+        result = lyrics_collection.find_one({
+            "song_name": track["name"],
+            "artist_name": track["artist"]
+        })
+
+        if result and "lyrics" in result:
+            lyrics = result["lyrics"]
         else:
             song_path = search_song(track["name"], track["artist"])
             lyrics = get_lyrics1(track["name"], track["artist"])
             if not lyrics:
                 lyrics = get_lyrics2(song_path)
-            lyrics_cache[key] = lyrics  # cache it
+                print(lyrics)   
 
+            # Save to MongoDB
+            lyrics_collection.insert_one({
+                "song_name": track["name"],
+                "artist_name": track["artist"],
+                "lyrics": lyrics
+            })
         detected = detect_langs(lyrics)
         return [(lang.lang, round(lang.prob, 2)) for lang in detected]
-    except Exception:
+
+    except Exception as e:
+        print(f"Error processing {track['name']} by {track['artist']}: {e}")
         return []
 
-def get_top_songs_language_distribution(time_range):
+
+@app.route("/get_top_songs_language_distribution")
+def get_top_songs_language_distribution():
     # parse through top songs from mongoDB and get the languages 
-    data = collection.find({"time_range": time_range})
+    time_range = request.args.get("time_range")
+    user_id = request.args.get("user_id")
+    data = top_songs_collection.find({"time_range": time_range, "user_id": user_id})
 
     lang_confidences = defaultdict(list)
-    seen_tracks = set()
-    lyrics_cache = {}
-
-    def wrapped_process(track):
-        key = (track["name"].lower(), track["artist"].lower())
-        if key in seen_tracks:
-            return []
-        seen_tracks.add(key)
-        return process_track(track, lyrics_cache)
     
     length = 0
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         futures = []
         for doc in data:
             for track in doc.get("topTracks", []):
-                futures.append(executor.submit(wrapped_process, track))
+                futures.append(executor.submit(process_track, track))
 
         for future in as_completed(futures):
             for lang, conf in future.result():
@@ -344,7 +400,8 @@ def get_top_songs_language_distribution(time_range):
         get_language_name(lang): round(conf * 100, 4)
         for lang, conf in avg_confidences.items()
     }
-    return avg_confidences_names
+    return jsonify({"languages": avg_confidences_names})
+
 
 def get_lyrics1(track, artist):
     url = f"https://api.lyrics.ovh/v1/{artist}/{track}"
@@ -458,6 +515,6 @@ def gather_lyrics(track, lyrics_cache):
         return [(lang.lang, round(lang.prob, 2)) for lang in detected]
     except Exception:
         return []
-
+      
 if __name__ == "__main__":
     app.run(debug=True)
