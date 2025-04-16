@@ -14,6 +14,7 @@ from langdetect import detect_langs
 from babel import Locale
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
+from better_profanity import profanity
 
 load_dotenv()
 
@@ -221,6 +222,80 @@ def get_user_playlists():
         })
     return jsonify(playlists)
 
+@app.route("/playlist-lyrics")
+def get_playlist_lyric_lang_data():
+    playlist_id = request.args.get("playlist_id")
+    user_id = request.args.get("user_id")
+
+    if not playlist_id or not user_id:
+        return jsonify({"error": "playlist_id and user_id are required"}), 400
+
+    try:
+        sp = get_spotify_client(user_id)
+        tracks_response = sp.playlist_tracks(playlist_id, limit=50)
+        tracks = [
+            {
+                "name": t["track"]["name"],
+                "artist": t["track"]["artists"][0]["name"]
+            }
+            for t in tracks_response["items"] if t.get("track")
+        ]
+
+        lyrics_cache = {}
+        seen_tracks = set()
+        lang_confidences = defaultdict(list)
+        length = 0
+
+        def wrapped_process(track):
+            key = (track["name"].lower(), track["artist"].lower())
+            if key in seen_tracks:
+                return []
+            seen_tracks.add(key)
+            return process_track(track, lyrics_cache)
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(wrapped_process, t) for t in tracks]
+            for future in as_completed(futures):
+                for lang, conf in future.result():
+                    lang_confidences[lang].append(conf)
+                    length += 1
+
+        avg_confidences = {
+            lang: round(sum(scores) / length, 4)
+            for lang, scores in lang_confidences.items()
+        }
+
+        avg_confidences_names = {
+            get_language_name(lang): round(conf * 100, 4)
+            for lang, conf in avg_confidences.items()
+        }
+
+        return jsonify({"languages": avg_confidences_names})
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500    
+
+@app.route("/song-lyrics")
+def get_song_lyric_lang_data():
+    # Retrieve time range from query parameters
+    time_range = request.args.get("time_range")
+
+    if not time_range:
+        return jsonify({"error": "Time Range parameter is required"}), 400
+
+    try:
+        avg_lang_confidences= get_top_songs_language_distribution(time_range)
+
+        return jsonify({"languages": dict(avg_lang_confidences)})
+
+    except ValueError as e:
+        # Catch specific errors like song not found
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        # Catch general errors
+        print(f"Error: {str(e)}")  # Log to console
+        return jsonify({"error": "Failed to fetch lyrics", "details": str(e)}), 500
+
 
 def get_language_name(lang_code):
     try:
@@ -393,5 +468,53 @@ def clean_lyrics(raw_lyrics):
 
     return cleaned
 
+@app.route("/song-lyrics/profanity")
+def get_song_lyric_profanity_data():
+    # Retrieve time range from query parameters
+    time_range = request.args.get("time_range")
+
+    if not time_range:
+        return jsonify({"error": "Time Range parameter is required"}), 400
+    try:
+        #profanity_data = get_top_songs_profanity(time_range)
+        print("Success")
+        return jsonify([{"name": "test", "avgProf": 10, "avgWord": 100}])
+
+    except ValueError as e:
+        # Catch specific errors like song not found
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        # Catch general errors
+        print(f"Error: {str(e)}")  # Log to console
+        return jsonify({"error": "Failed to fetch lyrics", "details": str(e)}), 500
+    
+
+
+def get_profanity_count(clean_lyrics):
+    censored_lyrics = profanity.censor(clean_lyrics)
+
+    # better-profanity replaces detected profanity with "****" string
+    profanity_count = censored_lyrics.count("****")
+    
+    return profanity_count
+
+# In progress, altering process_track() structure to return song lyrics for profanity analysis
+def gather_lyrics(track, lyrics_cache):
+    try:
+        key = (track["name"].lower(), track["artist"].lower())
+        if key in lyrics_cache:
+            lyrics = lyrics_cache[key]
+        else:
+            song_path = search_song(track["name"], track["artist"])
+            lyrics = get_lyrics1(track["name"], track["artist"])
+            if not lyrics:
+                lyrics = get_lyrics2(song_path)
+            lyrics_cache[key] = lyrics  # cache it
+
+        detected = detect_langs(lyrics)
+        return [(lang.lang, round(lang.prob, 2)) for lang in detected]
+    except Exception:
+        return []
+      
 if __name__ == "__main__":
     app.run(debug=True)
