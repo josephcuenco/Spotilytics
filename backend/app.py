@@ -275,26 +275,26 @@ def get_playlist_lyric_lang_data():
     except Exception as e:
         return jsonify({"error": str(e)}), 500    
 
-@app.route("/song-lyrics")
-def get_song_lyric_lang_data():
-    # Retrieve time range from query parameters
-    time_range = request.args.get("time_range")
+# @app.route("/song-lyrics")
+# def get_song_lyric_lang_data():
+#     # Retrieve time range from query parameters
+#     time_range = request.args.get("time_range")
 
-    if not time_range:
-        return jsonify({"error": "Time Range parameter is required"}), 400
+#     if not time_range:
+#         return jsonify({"error": "Time Range parameter is required"}), 400
 
-    try:
-        avg_lang_confidences= get_top_songs_language_distribution(time_range)
+#     try:
+#         avg_lang_confidences= get_top_songs_language_distribution(time_range)
 
-        return jsonify({"languages": dict(avg_lang_confidences)})
+#         return jsonify({"languages": dict(avg_lang_confidences)})
 
-    except ValueError as e:
-        # Catch specific errors like song not found
-        return jsonify({"error": str(e)}), 404
-    except Exception as e:
-        # Catch general errors
-        print(f"Error: {str(e)}")  # Log to console
-        return jsonify({"error": "Failed to fetch lyrics", "details": str(e)}), 500
+#     except ValueError as e:
+#         # Catch specific errors like song not found
+#         return jsonify({"error": str(e)}), 404
+#     except Exception as e:
+#         # Catch general errors
+#         print(f"Error: {str(e)}")  # Log to console
+#         return jsonify({"error": "Failed to fetch lyrics", "details": str(e)}), 500
 
 
 def get_language_name(lang_code):
