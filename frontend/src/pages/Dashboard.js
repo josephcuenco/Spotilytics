@@ -1,21 +1,38 @@
-import { React, useEffect, useState, useCallback, useRef} from "react";
+import { React, useEffect, useState, useRef} from "react";
 import { Routes, Route, Link , useLocation } from "react-router-dom";
 import axios from "axios";
 import SpotilyticsIcon from "../images/Spotilytics.png";
 import TopSongs from "./TopSongs";
 import Playlists from "./Playlists";
 import { Info } from "lucide-react";
+import { useTopData } from "./TopDataContext";
 import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
     const [user, setUser] = useState(null);
-    const [topData, setTopData] = useState({ topTracks: [], topArtists: [], 
+    const {
+        topDataShort, setTopDataShort,
+        topDataMedium, setTopDataMedium,
+        topDataLong, setTopDataLong,
+        topDataFetched, setTopDataFetched
+
+      } = useTopData();
+    
+      
+
+    const [currentData, setCurrentData] = useState({ topTracks: [], topArtists: [], 
         artistPopularity: 0, trackPopularity: 0})
     const location = useLocation();
-    const [timeRange, setTimeRange] = useState("long_term");
+    const [timeRange, setTimeRange] = useState("");
     const [activePage, setActivePage] = useState("")
     const dropdownRef = useRef(null); 
+    const [dataStored, setDataStored] = useState(false);
+    const [open, setOpen] = useState(false);
+    const navigate = useNavigate();
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+
+    //handles clicking outside of dropdown
     useEffect(() => {
         const handleClickOutside = (event) => {
           if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -29,16 +46,16 @@ const Dashboard = () => {
         };
       }, []);
 
-    const [open, setOpen] = useState(false);
-    const navigate = useNavigate();
-
     const handleLogout = () => {
         navigate("/");
     };
 
-    const fetchUserData = useCallback(async () => {
+    //stores top track data in context
+    useEffect(() => {
+        async function storeUserData() {
         const params = new URLSearchParams(window.location.search);
         const userId = params.get("user_id");
+
 
         if (!userId) {
             console.error("No user_id found in URL");
@@ -52,20 +69,227 @@ const Dashboard = () => {
             });
             setUser(userResponse.data);
 
-            // Fetch user's top tracks and artists with selected time range
-            const topDataResponse = await axios.get("http://localhost:5000/user-top", {
-                params: { user_id: userId, time_range: timeRange }
-            });
-            setTopData(topDataResponse.data);
+            // store user's top tracks and artists 
+            if(!dataStored){
+                let topDataResponse = await axios.get("http://localhost:5000/store-user-top-data", {
+                    params: { user_id: userId, time_range: "short_term"}
+                });
+                setTopDataShort(topDataResponse.data);
+                topDataResponse = await axios.get("http://localhost:5000/store-user-top-data", {
+                    params: { user_id: userId, time_range: "medium_term"}
+                });
+                setTopDataMedium(topDataResponse.data);
+                topDataResponse = await axios.get("http://localhost:5000/store-user-top-data", {
+                    params: { user_id: userId, time_range: "long_term"}
+                });
+                setTopDataLong(topDataResponse.data);
+
+                setDataStored(true);
+            }
+            setTimeRange("short_term");
+
         } catch (error) {
             console.error("Error fetching data:", error);
+        }        
+    }
+    storeUserData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    //sets current data based on time range
+    useEffect(() => {
+        let topData;
+        if(timeRange === "short_term"){
+            topData = topDataShort;
+        } else if(timeRange === "medium_term"){
+            topData = topDataMedium;
+        } else {
+            topData = topDataLong;
         }
+        
+        setCurrentData(topData);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [timeRange]);
 
-        // refetch when time range changes
-        useEffect(() => { fetchUserData();}, [fetchUserData]);
+
+    //fetches language distributions for top tracks and stores in context
+    //THIS IS SEQUENTIAL BECAUSE IT DOES NOT WORK IN PARALLEL OR LOOPED
+    const fetchLanguageDistributions = async () => {
+    const languageData = {};
     
+        try {
+        const response = await axios.get("http://localhost:5000/get_top_songs_language_distribution", {
+            params: {
+            time_range: "short_term",
+            user_id: user.id
+            }
+        });
+    
+        const data = response.data;
+
+        let sum = 0;
+        for (const lang in data.languages) {
+            if (data.languages[lang] < 0.9) {
+            delete data.languages[lang];
+            } else {
+            sum += data.languages[lang];
+            }
+        }
+    
+        const localUncertain = Math.max(0, 100 - sum);
+        data.languages["Uncertain"] = Number(localUncertain.toFixed(2));
+    
+        // Save cleaned distribution per time range
+        languageData["short_term"] = data.languages;
+    
+        } catch (error) {
+        console.error(`Failed to fetch language distribution for ${"short_term"}:`, error);
+        }
+
+        try {
+        const response = await axios.get("http://localhost:5000/get_top_songs_language_distribution", {
+            params: {
+            time_range: "medium_term",
+            user_id: user.id
+            }
+        });
+    
+        const data = response.data;
+
+        let sum = 0;
+        for (const lang in data.languages) {
+            if (data.languages[lang] < 0.9) {
+            delete data.languages[lang];
+            } else {
+            sum += data.languages[lang];
+            }
+        }
+    
+        const localUncertain = Math.max(0, 100 - sum);
+        data.languages["Uncertain"] = Number(localUncertain.toFixed(2));
+    
+        // Save cleaned distribution per time range
+        languageData["medium_term"] = data.languages;
+    
+        } catch (error) {
+        console.error(`Failed to fetch language distribution for ${"medium_term"}:`, error);
+        }
+
+        try {
+        const response = await axios.get("http://localhost:5000/get_top_songs_language_distribution", {
+            params: {
+            time_range: "long_term",
+            user_id: user.id
+            }
+        });
+    
+        const data = response.data;
+
+        let sum = 0;
+        for (const lang in data.languages) {
+            if (data.languages[lang] < 0.9) {
+            delete data.languages[lang];
+            } else {
+            sum += data.languages[lang];
+            }
+        }
+    
+        const localUncertain = Math.max(0, 100 - sum);
+        data.languages["Uncertain"] = Number(localUncertain.toFixed(2));
+    
+        // Save cleaned distribution per time range
+        languageData["long_term"] = data.languages;
+    
+        } catch (error) {
+        console.error(`Failed to fetch language distribution for ${"long_term"}:`, error);
+        }
+    setTopDataFetched(true);
+
+    return languageData;
+    };
+    
+    //fetches lyrics for top tracks in groups of 5and stores in context
+    const fetchLyricsInChunks = async (tracks, chunkSize = 5, delay = 1000, setTopData) => {
+        for (let i = 0; i < tracks.length; i += chunkSize) {
+          const chunk = tracks.slice(i, i + chunkSize);
+      
+          const chunkResults = await Promise.all(chunk.map(async (track) => {
+            if (track.lyrics) return track;
+      
+            try {
+              const response = await axios.get("http://localhost:5000/get-lyrics", {
+                params: {
+                  song_name: track.name,
+                  artist_name: track.artist
+                }
+              });
+      
+              return {
+                ...track,
+                lyrics: response.data.lyrics || "No lyrics found"
+              };
+            } catch (error) {
+              console.error(`Error for ${track.name}:`, error);
+              return {
+                ...track,
+                lyrics: "Error fetching lyrics"
+              };
+            }
+          }));
+      
+          // merge the new lyrics into the existing state
+          setTopData(prev => {
+            const updatedTracks = prev.topTracks.map(track => {
+              const updated = chunkResults.find(t => t.name === track.name && t.artist === track.artist);
+              return updated ? updated : track;
+            });
+            return {
+              ...prev,
+              topTracks: updatedTracks
+            };
+          });
+      
+          if (i + chunkSize < tracks.length) {
+            await sleep(delay);
+          }
+        }
+      };
+      
+
+    //stores all lyrics and language distributions in context
+    useEffect(() => {
+    const fetchAllLyricsAndDistributions = async () => {
+        if (topDataFetched) return; // stops duplicate fetches
+        if (!topDataShort.topTracks || !topDataMedium.topTracks || !topDataLong.topTracks) return;
+        if(!user)return;
+
+        await fetchLyricsInChunks(topDataShort.topTracks, 5, 1000, setTopDataShort);
+        await fetchLyricsInChunks(topDataMedium.topTracks, 5, 1000, setTopDataMedium);
+        await fetchLyricsInChunks(topDataLong.topTracks, 5, 1000, setTopDataLong);
+
+        const languageDistributions = await fetchLanguageDistributions();
+
+        setTopDataShort(prev => ({
+        ...prev,
+        languageDistribution: languageDistributions.short_term || {},
+        }));
+    
+        setTopDataMedium(prev => ({
+        ...prev,
+        languageDistribution: languageDistributions.medium_term || {},
+        }));
+    
+        setTopDataLong(prev => ({
+        ...prev,
+        languageDistribution: languageDistributions.long_term || {},
+        }));
+    };
+    
+    fetchAllLyricsAndDistributions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dataStored]);
+
+
 
     return (
         <div className="min-h-screen bg-black text-white">
@@ -78,9 +302,9 @@ const Dashboard = () => {
                         <Link 
                             to={`/dashboard?user_id=${user.id}`}
                             onClick={() => setActivePage("overview")}
-                            className={`px-6 py-2 bg-gray-900 text-white font-semibold rounded-full transition 
+                            className={`px-6 py-2 bg-gray-900 font-semibold rounded-full transition 
                             duration-300 hover:bg-green-500 hover:text-black shadow-md hover:shadow-lg
-                            ${activePage === "overview" ? "bg-green-500 text-black" : "bg-gray-900"}`}
+                            ${activePage === "overview" ? "bg-green-500 text-black" : "bg-gray-900 text-white"}`}
                         >
                             Overview
                         </Link>
@@ -91,9 +315,9 @@ const Dashboard = () => {
                         <Link 
                             to={`/dashboard/topsongs?user_id=${user.id}`}
                             onClick={() => setActivePage("top_tracks")}
-                            className={`px-6 py-2 bg-gray-900 text-white font-semibold rounded-full transition 
+                            className={`px-6 py-2 bg-gray-900 font-semibold rounded-full transition 
                             duration-300 hover:bg-green-500 hover:text-black shadow-md hover:shadow-lg
-                            ${activePage === "top_tracks" ? "bg-green-500 text-black" : "bg-gray-900"}`}
+                            ${activePage === "top_tracks" ? "bg-green-500 text-black" : "bg-gray-900 text-white"}`}
                         >
                             Top Tracks
                         </Link>
@@ -104,9 +328,9 @@ const Dashboard = () => {
                         <Link 
                             to={`/dashboard/playlists?user_id=${user.id}`}
                             onClick={() => setActivePage("playlists")}
-                            className={`px-6 py-2 bg-gray-900 text-white font-semibold rounded-full transition 
+                            className={`px-6 py-2 bg-gray-900 font-semibold rounded-full transition 
                             duration-300 hover:bg-green-500 hover:text-black shadow-md hover:shadow-lg
-                            ${activePage === "playlists" ? "bg-green-500 text-black" : "bg-gray-900"}`}
+                            ${activePage === "playlists" ? "bg-green-500 text-black" : "bg-gray-900 text-white"}`}
                         >
                             Playlists
                         </Link>
@@ -155,27 +379,27 @@ const Dashboard = () => {
 
 
                     <div className="flex justify-between items-center space-x-6 ml-26 mt-8 mr-16">
-                        <img src={user?.images[0].url} alt="Profile" className="w-20 h-20 ml-20 rounded-full" />
-                        <h1 className="text-5xl font-bold ml-16 w-1/3">
-                            Welcome, {user?.display_name}!
-                        </h1>
+                        <div className="flex items-center text-5xl font-bold ml-16 w-1/2">
+                            <img src={user?.images[0]?.url} alt="Profile" className="w-20 h-20 ml-20 rounded-full" />
+                            <h className="ml-10">Welcome, {user?.display_name}!</h>
+                        </div>
 
-                        <div className="flex space-x-4 mb-3 mt-3 ml-16 max-h-[130px] w-1/4">
+                        <div className="flex space-x-4 mb-3 mt-6 ml-12 min-h-[90px] w-1/3">
                             <button 
                                 onClick={() => setTimeRange("short_term")} 
-                                className={`px-4 py-2 max-w-[110px] rounded-full ${timeRange === "short_term" ? "bg-green-500 text-black" : "bg-gray-900 text-white"} transition 
+                                className={`px-4 py-4 max-w-[110px] rounded-full ${timeRange === "short_term" ? "bg-green-500 text-black" : "bg-gray-900 text-white"} transition 
                                     duration-300 hover:bg-green-500 hover:text-black font-semibold`}>
                                 Last Month
                             </button>
                             <button 
                                 onClick={() => setTimeRange("medium_term")} 
-                                className={`px-4 py-2 max-w-[110px] rounded-full ${timeRange === "medium_term" ? "bg-green-500 text-black" : "bg-gray-900 text-white"} transition 
+                                className={`px-4 py-4 max-w-[110px] rounded-full ${timeRange === "medium_term" ? "bg-green-500 text-black" : "bg-gray-900 text-white"} transition 
                                     duration-300 hover:bg-green-500 hover:text-black font-semibold`}>
                                 Last 6 Months
                             </button>
                             <button 
                                 onClick={() => setTimeRange("long_term")} 
-                                className={`px-4 py-2 max-w-[110px] rounded-full ${timeRange === "long_term" ? "bg-green-500 text-black" : "bg-gray-900 text-white"}  transition 
+                                className={`px-4 py-4 max-w-[110px] rounded-full ${timeRange === "long_term" ? "bg-green-500 text-black" : "bg-gray-900 text-white"}  transition 
                                     duration-300 hover:bg-green-500 hover:text-black font-semibold`}>
                                 Last 12 Months
                             </button>
@@ -198,10 +422,10 @@ const Dashboard = () => {
 
                             <h2 className="text-2xl font-bold text-white mb-1">Popularity Ratings</h2>
                             <p className="text-gray-300">
-                                🎵 Top Tracks Popularity: {topData.trackPopularity}/100
+                                🎵 Top Tracks Popularity: {currentData.trackPopularity}/100
                             </p>
                             <p className="text-gray-300">
-                                🎤 Top Artists Popularity: {topData.artistPopularity}/100
+                                🎤 Top Artists Popularity: {currentData.artistPopularity}/100
                             </p>
                         </div>
 
@@ -217,7 +441,7 @@ const Dashboard = () => {
                             <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/2">
                                 <h2 className="text-3xl font-bold text-white mb-4">Top Artists</h2>
                                 <ul className="space-y-6 mt-6">
-                                    {topData.topArtists?.map((artist, index) => (
+                                    {currentData.topArtists?.map((artist, index) => (
                                         <li key={index} className="flex items-center space-x-4 text-gray-300  max-h-[45px]">
                                             
                                             {/* Artist info */}
@@ -239,7 +463,7 @@ const Dashboard = () => {
                             <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/2">
                                 <h2 className="text-3xl font-bold text-white mb-4">Top Tracks</h2>
                                 <ul className="space-y-6 mt-6">
-                                    {topData.topTracks?.map((track, index) => (
+                                    {currentData.topTracks?.map((track, index) => (
                                         <li key={index} className="flex items-center space-x-4 text-gray-300 max-h-[45px]">
 
                                              {/* Artist info */}
