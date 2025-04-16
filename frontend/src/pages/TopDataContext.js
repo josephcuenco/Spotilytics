@@ -7,6 +7,7 @@ export const TopDataProvider = ({ children }) => {
   const [topDataMedium, setTopDataMedium] = useState({ topTracks: [], topArtists: [], artistPopularity: 0, trackPopularity: 0, languageDistribution: {} });
   const [topDataLong, setTopDataLong] = useState({ topTracks: [], topArtists: [], artistPopularity: 0, trackPopularity: 0, languageDistribution: {} });
   const [topDataFetched, setTopDataFetched] = useState(false);
+  const [userPlaylists, setUserPlaylists] = useState([]);
 
 
   return (
@@ -14,7 +15,8 @@ export const TopDataProvider = ({ children }) => {
       topDataShort, setTopDataShort,
       topDataMedium, setTopDataMedium,
       topDataLong, setTopDataLong,
-      topDataFetched, setTopDataFetched
+      topDataFetched, setTopDataFetched,
+      userPlaylists, setUserPlaylists
     }}>
       {children}
     </TopDataContext.Provider>

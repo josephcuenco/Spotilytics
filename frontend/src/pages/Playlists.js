@@ -1,14 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import axios from "axios";
+import { useTopData } from "./TopDataContext";
+
 
 const Playlists = () => {
-  const [playlists, setPlaylists] = useState([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [playlistselected, setPlaylistselected] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [languageDistribution, setLanguageDistribution] = useState(null);
   const [languageLoading, setLanguageLoading] = useState(false);
+  //const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+
+  const {
+            userPlaylists, setUserPlaylists
+          } = useTopData();
+  
 
   const COLORS = [
     '#1DB954', // Spotify green
@@ -24,9 +32,11 @@ const Playlists = () => {
     '#28A745'  // subtle green
     ];
 
+
 useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const userId = params.get("user_id");
+    if(userPlaylists.length > 0)return;
 
     setLoading(true); // start loading
 
@@ -34,14 +44,111 @@ useEffect(() => {
       params: { user_id: userId },
     })
     .then((response) => {
-      setPlaylists(response.data);
+      setUserPlaylists(response.data);
     })
     .catch((error) => {
       console.error("Error fetching playlists:", error);
     }).finally(() => {
         setLoading(false); // stop loading
     });
+    
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+
+
+  //TRANSFERRING NEW METHOD OF LYRICS AND LANGUAGE DISTRIBUTION RETRIVEAL TO PLAYLISTS PAGE
+  //***IN PROGRESS***
+
+  // const fetchLanguageDistributions = async () => {
+  //   const languageData = {};
+    
+  //       try {
+  //       const response = await axios.get("http://localhost:5000/get_top_songs_language_distribution", {
+  //           params: {
+  //           time_range: "short_term",
+  //           user_id: user.id
+  //           }
+  //       });
+    
+  //       const data = response.data;
+
+  //       let sum = 0;
+  //       for (const lang in data.languages) {
+  //           if (data.languages[lang] < 0.9) {
+  //           delete data.languages[lang];
+  //           } else {
+  //           sum += data.languages[lang];
+  //           }
+  //       }
+    
+  //       const localUncertain = Math.max(0, 100 - sum);
+  //       data.languages["Uncertain"] = Number(localUncertain.toFixed(2));
+    
+  //       // Save cleaned distribution per time range
+  //       languageData["short_term"] = data.languages;
+    
+  //       } catch (error) {
+  //       console.error(`Failed to fetch language distribution for ${"short_term"}:`, error);
+  //       }
+
+  //   setTopDataFetched(true);
+
+  //   return languageData;
+  //   };
+    
+  //   //fetches lyrics for top tracks in groups of 5 
+  //   const fetchLyricsInChunks = async (tracks, chunkSize = 5, delay = 1000, setTopData) => {
+  //       for (let i = 0; i < tracks.length; i += chunkSize) {
+  //         const chunk = tracks.slice(i, i + chunkSize);
+      
+  //         const chunkResults = await Promise.all(chunk.map(async (track) => {
+  //           if (track.lyrics) return track;
+      
+  //           try {
+  //             const response = await axios.get("http://localhost:5000/get-lyrics", {
+  //               params: {
+  //                 song_name: track.name,
+  //                 artist_name: track.artist
+  //               }
+  //             });
+      
+  //             return {
+  //               ...track,
+  //               lyrics: response.data.lyrics || "No lyrics found"
+  //             };
+  //           } catch (error) {
+  //             console.error(`Error for ${track.name}:`, error);
+  //             return {
+  //               ...track,
+  //               lyrics: "Error fetching lyrics"
+  //             };
+  //           }
+  //         }));
+      
+  //         // merge the new lyrics into the existing state
+  //         setTopData(prev => {
+  //           const updatedTracks = prev.topTracks.map(track => {
+  //             const updated = chunkResults.find(t => t.name === track.name && t.artist === track.artist);
+  //             return updated ? updated : track;
+  //           });
+  //           return {
+  //             ...prev,
+  //             topTracks: updatedTracks
+  //           };
+  //         });
+      
+  //         if (i + chunkSize < tracks.length) {
+  //           await sleep(delay);
+  //         }
+  //       }
+  //     };
+
+
+
+
+
+
 
   return (
     <div className="flex mt-8 ml-32 mr-16 space-x-12">
@@ -97,7 +204,7 @@ useEffect(() => {
                     <h2 className="text-3xl font-bold mb-6">Pick a playlist!</h2>
 
                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      {playlists.map((playlist, index) => (
+                      {userPlaylists.map((playlist, index) => (
                       <div
                       key={index}
                       onClick={async () => {
