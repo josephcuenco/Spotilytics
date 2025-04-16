@@ -1,20 +1,25 @@
 import { BrowserRouter as Router, Route, Routes} from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
+import { TopDataProvider } from "./pages/TopDataContext";
+
 
 
 const App = () => {
+  
   return (
-    <Router>
-      <div>
-        <Routes>
-          <Route path="/" element={<LoginPage />} />
+    <TopDataProvider>
+      <Router>
+        <div>
+          <Routes>
+            <Route path="/" element={<LoginPage />} />
 
-          <Route path="/dashboard/*" element={<Dashboard />} />
-          
-        </Routes>
-      </div>
-    </Router>
+            <Route path="/dashboard/*" element={<Dashboard />} />
+            
+          </Routes>
+        </div>
+      </Router>
+    </TopDataProvider>
   );
 };
 
