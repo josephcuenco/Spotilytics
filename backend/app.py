@@ -32,6 +32,7 @@ db = client["Spotilytics"]      # Database name
 top_songs_collection = db["userTopSongData"]   
 lyrics_collection = db["lyrics"]
 users_collection = db["users"]
+playlist_collection = db["playlists"]
 
 sp_oauth = SpotifyOAuth(
     client_id=os.getenv("SPOTIFY_CLIENT_ID"),
@@ -134,12 +135,6 @@ def store_user_top_data():
 
     sp = get_spotify_client(user_id)
 
-    # Check if data already exists in MongoDB
-    existing_data = top_songs_collection.find_one({"user_id": user_id, "time_range": time_range})
-    if existing_data:
-        existing_data["_id"] = str(existing_data["_id"])  # Convert ObjectId to string
-        return jsonify(existing_data)
-
     # Fetch top tracks
     top_tracks = sp.current_user_top_tracks(limit=50, time_range=time_range)
     top_tracks_list = [{"name": track["name"], 
@@ -206,74 +201,118 @@ def get_user_playlists():
         tracks_response = sp.playlist_tracks(playlist_id, limit=50) 
         tracks = [
             {
-                "track_name": t["track"]["name"],
-                "artist_name": t["track"]["artists"][0]["name"]
+                "name": t["track"]["name"],
+                "artist": t["track"]["artists"][0]["name"],
+                "lyrics": None
             }
             for t in tracks_response["items"] if t.get("track")  # handle null cases
         ]
 
-        playlists.append({
+        data_to_store = {
             "name": p["name"],
             "image": p["images"][0]["url"] if p["images"] else None,
             "id": p["id"],
             "tracks_total": p["tracks"]["total"],
             "url": p["external_urls"]["spotify"],
-            "tracks_preview": tracks
-        })
-    return jsonify(playlists)
-
-@app.route("/playlist-lyrics")
-def get_playlist_lyric_lang_data():
-    playlist_id = request.args.get("playlist_id")
-    user_id = request.args.get("user_id")
-
-    if not playlist_id or not user_id:
-        return jsonify({"error": "playlist_id and user_id are required"}), 400
-
-    try:
-        sp = get_spotify_client(user_id)
-        tracks_response = sp.playlist_tracks(playlist_id, limit=50)
-        tracks = [
-            {
-                "name": t["track"]["name"],
-                "artist": t["track"]["artists"][0]["name"]
-            }
-            for t in tracks_response["items"] if t.get("track")
-        ]
-
-        lyrics_cache = {}
-        seen_tracks = set()
-        lang_confidences = defaultdict(list)
-        length = 0
-
-        def wrapped_process(track):
-            key = (track["name"].lower(), track["artist"].lower())
-            if key in seen_tracks:
-                return []
-            seen_tracks.add(key)
-            return process_track(track, lyrics_cache)
-
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(wrapped_process, t) for t in tracks]
-            for future in as_completed(futures):
-                for lang, conf in future.result():
-                    lang_confidences[lang].append(conf)
-                    length += 1
-
-        avg_confidences = {
-            lang: round(sum(scores) / length, 4)
-            for lang, scores in lang_confidences.items()
+            "tracks_preview": tracks,
+            "languageDistribution": None
         }
 
-        avg_confidences_names = {
-            get_language_name(lang): round(conf * 100, 4)
-            for lang, conf in avg_confidences.items()
-        }
+        playlists.append(data_to_store)
 
-        return jsonify({"languages": avg_confidences_names})
+        playlist_collection.update_one(
+        {"id": p["id"]},
+        {"$set": data_to_store},
+        upsert=True
+        )
+        
+    return jsonify({"playlists": playlists})
+
+@app.route("/get_playlist_language_distribution")
+def get_playlist_language_distribution():
+    # parse through top songs from mongoDB and get the languages 
+    pId = request.args.get("playlist_id")
+    data = playlist_collection.find({"id": pId})
+
+    lang_confidences = defaultdict(list)
     
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500    
+    length = 0
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = []
+        for doc in data:
+            for track in doc.get("tracks_preview", []):
+                futures.append(executor.submit(process_track, track))
+
+        for future in as_completed(futures):
+            for lang, conf in future.result():
+                lang_confidences[lang].append(conf)
+                length += 1
+
+    # Average confidence
+    avg_confidences = {
+        lang: round(sum(scores) / length, 4)
+        for lang, scores in lang_confidences.items()
+    }
+
+    avg_confidences_names = {
+        get_language_name(lang): round(conf * 100, 4)
+        for lang, conf in avg_confidences.items()
+    }
+    return jsonify({"languages": avg_confidences_names})
+
+
+# @app.route("/playlist-lyrics")
+# def get_playlist_lyric_lang_data():
+#     playlist_id = request.args.get("playlist_id")
+#     user_id = request.args.get("user_id")
+
+#     if not playlist_id or not user_id:
+#         return jsonify({"error": "playlist_id and user_id are required"}), 400
+
+#     try:
+#         sp = get_spotify_client(user_id)
+#         tracks_response = sp.playlist_tracks(playlist_id, limit=50)
+#         tracks = [
+#             {
+#                 "name": t["track"]["name"],
+#                 "artist": t["track"]["artists"][0]["name"]
+#             }
+#             for t in tracks_response["items"] if t.get("track")
+#         ]
+
+#         lyrics_cache = {}
+#         seen_tracks = set()
+#         lang_confidences = defaultdict(list)
+#         length = 0
+
+#         def wrapped_process(track):
+#             key = (track["name"].lower(), track["artist"].lower())
+#             if key in seen_tracks:
+#                 return []
+#             seen_tracks.add(key)
+#             return process_track(track, lyrics_cache)
+
+#         with ThreadPoolExecutor(max_workers=10) as executor:
+#             futures = [executor.submit(wrapped_process, t) for t in tracks]
+#             for future in as_completed(futures):
+#                 for lang, conf in future.result():
+#                     lang_confidences[lang].append(conf)
+#                     length += 1
+
+#         avg_confidences = {
+#             lang: round(sum(scores) / length, 4)
+#             for lang, scores in lang_confidences.items()
+#         }
+
+#         avg_confidences_names = {
+#             get_language_name(lang): round(conf * 100, 4)
+#             for lang, conf in avg_confidences.items()
+#         }
+
+#         return jsonify({"languages": avg_confidences_names})
+    
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500    
 
 # @app.route("/song-lyrics")
 # def get_song_lyric_lang_data():
@@ -306,16 +345,16 @@ def get_language_name(lang_code):
 
 @app.route("/get-lyrics")
 def get_lyrics():
-    song_name = request.args.get("song_name")
-    artist_name = request.args.get("artist_name")
+    name = request.args.get("name")
+    artist = request.args.get("artist")
 
-    if not song_name or not artist_name:
+    if not name or not artist:
         return jsonify({"error": "Missing song_name or artist_name"}), 400
 
     # Check if lyrics already exist
     existing = lyrics_collection.find_one({
-        "song_name": song_name,
-        "artist_name": artist_name
+        "name": name,
+        "artist": artist
     })
 
     if existing and "lyrics" in existing:
@@ -323,15 +362,15 @@ def get_lyrics():
         return jsonify(existing)
 
     # Fetch lyrics if not in DB
-    song_path = search_song(song_name, artist_name)
-    lyrics = get_lyrics1(song_name, artist_name)
+    song_path = search_song(name, artist)
+    lyrics = get_lyrics1(name, artist)
     if not lyrics:
         lyrics = get_lyrics2(song_path)
 
     # Store in DB
     lyrics_collection.insert_one({
-        "song_name": song_name,
-        "artist_name": artist_name,
+        "name": name,
+        "artist": artist,
         "lyrics": lyrics
     })
 
@@ -342,8 +381,8 @@ def process_track(track):
     try:
         # Check MongoDB
         result = lyrics_collection.find_one({
-            "song_name": track["name"],
-            "artist_name": track["artist"]
+            "name": track["name"],
+            "artist": track["artist"]
         })
 
         if result and "lyrics" in result:
@@ -357,8 +396,8 @@ def process_track(track):
 
             # Save to MongoDB
             lyrics_collection.insert_one({
-                "song_name": track["name"],
-                "artist_name": track["artist"],
+                "name": track["name"],
+                "artist": track["artist"],
                 "lyrics": lyrics
             })
         detected = detect_langs(lyrics)
