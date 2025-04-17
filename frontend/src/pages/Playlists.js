@@ -1,16 +1,19 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import axios from "axios";
 import { useTopData } from "./TopDataContext";
+import { Info } from "lucide-react";
 
 
 const Playlists = () => {
   const [selectedPlaylist, setSelectedPlaylist] = useState(null);
   const [playlistselected, setPlaylistselected] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [languageDistribution, setLanguageDistribution] = useState(null);
   const [languageLoading, setLanguageLoading] = useState(false);
-  //const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  const [user_id, setUserID] = useState(null);
+  const cancelFetchRef = useRef(false);
+
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 
   const {
@@ -36,6 +39,7 @@ const Playlists = () => {
 useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const userId = params.get("user_id");
+    setUserID(user_id);
     if(userPlaylists.length > 0)return;
 
     setLoading(true); // start loading
@@ -60,89 +64,139 @@ useEffect(() => {
   //TRANSFERRING NEW METHOD OF LYRICS AND LANGUAGE DISTRIBUTION RETRIVEAL TO PLAYLISTS PAGE
   //***IN PROGRESS***
 
-  // const fetchLanguageDistributions = async () => {
-  //   const languageData = {};
+  const fetchLanguageDistribution = async (playlist_id) => {
+    const languageData = {};
+        try {
+        const response = await axios.get("http://localhost:5000/get_playlist_language_distribution", {
+            params: {
+            "playlist_id": playlist_id,
+            }
+        });
     
-  //       try {
-  //       const response = await axios.get("http://localhost:5000/get_top_songs_language_distribution", {
-  //           params: {
-  //           time_range: "short_term",
-  //           user_id: user.id
-  //           }
-  //       });
-    
-  //       const data = response.data;
+        const data = response.data;
 
-  //       let sum = 0;
-  //       for (const lang in data.languages) {
-  //           if (data.languages[lang] < 0.9) {
-  //           delete data.languages[lang];
-  //           } else {
-  //           sum += data.languages[lang];
-  //           }
-  //       }
+        let sum = 0;
+        for (const lang in data.languages) {
+            if (data.languages[lang] < 0.9) {
+            delete data.languages[lang];
+            } else {
+            sum += data.languages[lang];
+            }
+        }
     
-  //       const localUncertain = Math.max(0, 100 - sum);
-  //       data.languages["Uncertain"] = Number(localUncertain.toFixed(2));
+        const localUncertain = Math.max(0, 100 - sum);
+        data.languages["Uncertain"] = Number(localUncertain.toFixed(2));
     
-  //       // Save cleaned distribution per time range
-  //       languageData["short_term"] = data.languages;
+        // Save cleaned distribution per time range
+        languageData["data"] = data.languages;
     
-  //       } catch (error) {
-  //       console.error(`Failed to fetch language distribution for ${"short_term"}:`, error);
-  //       }
+        } catch (error) {
+        console.error(`Failed to fetch language distribution for playlist:`, error);
+        }
 
-  //   setTopDataFetched(true);
-
-  //   return languageData;
-  //   };
+    return languageData;
+    };
     
-  //   //fetches lyrics for top tracks in groups of 5 
-  //   const fetchLyricsInChunks = async (tracks, chunkSize = 5, delay = 1000, setTopData) => {
-  //       for (let i = 0; i < tracks.length; i += chunkSize) {
-  //         const chunk = tracks.slice(i, i + chunkSize);
+    //fetches lyrics for playlist in groups of 5 
+    const fetchLyricsInChunks = async (tracks, chunkSize = 5, delay = 1000, pId) => {
+      let updatedTracks = tracks;
+
+        for (let i = 0; i < tracks.length; i += chunkSize) {
+          if (cancelFetchRef.current) {
+            console.log("Fetch cancelled.");
+            return null;
+          }
+
+          const chunk = tracks.slice(i, i + chunkSize);
       
-  //         const chunkResults = await Promise.all(chunk.map(async (track) => {
-  //           if (track.lyrics) return track;
+          const chunkResults = await Promise.all(chunk.map(async (track) => {
+            if (cancelFetchRef.current) {
+              console.log("Fetch cancelled.");
+              return null;
+            }
+            if (track.lyrics) return track;
+            try {
+              const response = await axios.get("http://localhost:5000/get-lyrics", {
+                params: {
+                  name: track.name,
+                  artist: track.artist
+                }
+              });
       
-  //           try {
-  //             const response = await axios.get("http://localhost:5000/get-lyrics", {
-  //               params: {
-  //                 song_name: track.name,
-  //                 artist_name: track.artist
-  //               }
-  //             });
+              return {
+                ...track,
+                lyrics: response.data.lyrics || "No lyrics found"
+              };
+            } catch (error) {
+              console.error(`Error for ${track.name}:`, error);
+              return {
+                ...track,
+                lyrics: "Error fetching lyrics"
+              };
+            }
+          }));
       
-  //             return {
-  //               ...track,
-  //               lyrics: response.data.lyrics || "No lyrics found"
-  //             };
-  //           } catch (error) {
-  //             console.error(`Error for ${track.name}:`, error);
-  //             return {
-  //               ...track,
-  //               lyrics: "Error fetching lyrics"
-  //             };
-  //           }
-  //         }));
+            updatedTracks = userPlaylists.playlists.find(p => p.id === pId).tracks_preview.map(track => {
+              const updated = chunkResults.find(t => t.name === track.name && t.artist === track.artist);
+              return updated ? updated : track;
+            });
+
       
-  //         // merge the new lyrics into the existing state
-  //         setTopData(prev => {
-  //           const updatedTracks = prev.topTracks.map(track => {
-  //             const updated = chunkResults.find(t => t.name === track.name && t.artist === track.artist);
-  //             return updated ? updated : track;
-  //           });
-  //           return {
-  //             ...prev,
-  //             topTracks: updatedTracks
-  //           };
-  //         });
+          if (i + chunkSize < tracks.length) {
+            await sleep(delay);
+          }
+        }
+        return updatedTracks;
+      };
+
+      //stores all lyrics and language distributions in context
+      useEffect(() => {
+      const fetchPlaylistLyricsAndData = async () => {
+        cancelFetchRef.current = false;
+        if(!playlistselected)return;
+
+          const updatedTracks = await fetchLyricsInChunks(userPlaylists.playlists.find(p => p.id === selectedPlaylist.id).tracks_preview, 5, 1000, selectedPlaylist.id);
+
+          if (cancelFetchRef.current) {
+            console.log("Fetch cancelled.");
+            return null;
+          }
+
+          setUserPlaylists(prev => ({
+            ...prev,
+            playlists: prev.playlists.map(playlist =>
+              playlist.id === selectedPlaylist.id
+                ? { ...playlist, tracks_preview: updatedTracks || {} }
+                : playlist
+            )
+          }));
+  
+          const languageDistribution = await fetchLanguageDistribution(selectedPlaylist.id);
+  
+          setUserPlaylists(prev => ({
+            ...prev,
+            playlists: prev.playlists.map(playlist =>
+              playlist.id === selectedPlaylist.id
+                ? { ...playlist, languageDistribution: languageDistribution.data || {} }
+                : playlist
+            )
+          }));
+          
+          const updated = userPlaylists.playlists.find(p => p.id === selectedPlaylist.id);
+          if (updated) {
+            setSelectedPlaylist({
+              ...updated,
+              languageDistribution: languageDistribution.data || {},
+              tracks_preview: updated.tracks_preview
+            });
+          }
+          
+          setLanguageLoading(false);
+      };
       
-  //         if (i + chunkSize < tracks.length) {
-  //           await sleep(delay);
-  //         }
-  //       }
-  //     };
+      fetchPlaylistLyricsAndData();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [playlistselected]);
 
 
 
@@ -156,20 +210,38 @@ useEffect(() => {
       <div className="w-1/2">
         {playlistselected ? (
             <div>
-            <button onClick={() => setPlaylistselected(false)}
+            <button onClick={() => {
+              setPlaylistselected(false);
+              setSelectedPlaylist(null);
+              cancelFetchRef.current = true; // Cancel  in-progress fetch
+
+            }}
                 className="px-6 py-2 bg-gray-900 text-white rounded-full transition duration-300 hover:bg-green-400 hover:text-black shadow-md hover:shadow-lg"
                 >Back</button>
             {languageLoading ? (
               <div className="flex justify-center items-center h-64">
                 <div className="w-12 h-12 border-4 border-green-500 border-dashed rounded-full animate-spin"></div>
               </div>
-            ) : languageDistribution && !languageDistribution.error ? (
+            ) : selectedPlaylist.languageDistribution && !selectedPlaylist.languageDistribution.error ? (
               <div className="bg-gray-900 p-6 rounded-lg shadow-md mt-6">
+
+                <div className='flex items-center space-x-3'>
                 <h2 className="text-2xl font-bold text-white mb-4">Language Distribution</h2>
+                    <div className="relative group">
+                  <Info className="w-4 h-4 text-white cursor-pointer mb-3" />
+                  <div className="absolute left-0 bottom-0 ml-6 w-60 bg-green-500 text-black text-md font-semibold 
+                  rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity 
+                  duration-200 p-2 pointer-events-none">
+                  Spotilytics' language detection is not perfect, which is why there is an uncertain percentage!
+                  P.S. If the distribution looks wrong, try pressing back and returning to the playlist.
+                  </div>
+                </div>
+                </div>
+
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
                     <Pie
-                      data={Object.entries(languageDistribution).map(([language, value]) => ({
+                      data={Object.entries(selectedPlaylist.languageDistribution).map(([language, value]) => ({
                         name: language,
                         value: value,
                       }))}
@@ -182,8 +254,8 @@ useEffect(() => {
                       stroke="none"
                       labelLine={false}
                     >
-                      {Object.keys(languageDistribution).map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      {Object.keys(selectedPlaylist.languageDistribution).map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index]} />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -192,7 +264,7 @@ useEffect(() => {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-gray-400 mt-6">{languageDistribution?.error || "No language data available."}</p>
+              <p className="text-gray-400 mt-6">{selectedPlaylist.languageDistribution?.error || "No language data available."}</p>
             )}
             </div>
         ) : (loading ? (
@@ -204,46 +276,13 @@ useEffect(() => {
                     <h2 className="text-3xl font-bold mb-6">Pick a playlist!</h2>
 
                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      {userPlaylists.map((playlist, index) => (
+                      {userPlaylists.playlists.map((playlist, index) => (
                       <div
                       key={index}
                       onClick={async () => {
                         setSelectedPlaylist(playlist);
                         setPlaylistselected(true);
                         setLanguageLoading(true);
-                        setLanguageDistribution(null); // reset
-                      
-                        const params = new URLSearchParams(window.location.search);
-                        const userId = params.get("user_id");
-                      
-                        try {
-                          const res = await axios.get("http://localhost:5000/playlist-lyrics", {
-                            params: {
-                              playlist_id: playlist.id,
-                              user_id: userId
-                            }
-                          });
-                      
-                          let data = res.data.languages || {};
-                          let sum = 0;
-                          for (const lang in data) {
-                            if (data[lang] < 0.9) {
-                              delete data[lang];
-                            }
-                            if (data[lang]) {
-                              sum += data[lang];
-                            }
-                          }
-                          const localUncertain = Math.max(0, 100 - sum);
-                          data["Uncertain"] = Number(localUncertain.toFixed(2));
-                      
-                          setLanguageDistribution(data);
-                        } catch (error) {
-                          console.error("Error fetching language distribution:", error);
-                          setLanguageDistribution({ error: "Could not fetch language data." });
-                        } finally {
-                          setLanguageLoading(false);
-                        }
                       }}                      
                        className="cursor-pointer m-h-[300px] bg-gray-900 p-4 rounded-lg shadow-md hover:shadow-lg hover:bg-green-700 transition duration-300"
                            >
@@ -275,8 +314,8 @@ useEffect(() => {
             <ul className="space-y-3">
               {selectedPlaylist.tracks_preview?.map((track, idx) => (
                 <li key={idx} className="bg-gray-900 p-3 rounded-lg">
-                  <p className="text-white font-medium">{track.track_name}</p>
-                  <p className="text-gray-400 text-sm">by {track.artist_name}</p>
+                  <p className="text-white font-medium">{track.name}</p>
+                  <p className="text-gray-400 text-sm">{track.artist}</p>
                 </li>
               ))}
             </ul>

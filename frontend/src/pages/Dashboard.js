@@ -18,8 +18,6 @@ const Dashboard = () => {
 
       } = useTopData();
     
-      
-
     const [currentData, setCurrentData] = useState({ topTracks: [], topArtists: [], 
         artistPopularity: 0, trackPopularity: 0})
     const location = useLocation();
@@ -219,8 +217,8 @@ const Dashboard = () => {
             try {
               const response = await axios.get("http://localhost:5000/get-lyrics", {
                 params: {
-                  song_name: track.name,
-                  artist_name: track.artist
+                  name: track.name,
+                  artist: track.artist
                 }
               });
       
@@ -283,6 +281,8 @@ const Dashboard = () => {
         ...prev,
         languageDistribution: languageDistributions.long_term || {},
         }));
+
+    
     };
     
     fetchAllLyricsAndDistributions();
