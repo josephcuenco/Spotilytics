@@ -24,7 +24,7 @@ app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY")
 
 SPOTIFY_API_BASE_URL = "https://api.spotify.com/v1"
 
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
 
 # Connect to MongoDB
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
@@ -504,7 +504,11 @@ def get_sentiment():
                     "name": track["name"],
                     "artist": track["artist"]
                 })
-                lyrics = match.get("lyrics")
+                if  match:
+                    lyrics = match.get("lyrics")
+                else:
+                    lyrics = None
+                
                 if not lyrics or not isinstance(lyrics, str):
                     continue
                 ss = sid.polarity_scores(lyrics)
@@ -515,13 +519,17 @@ def get_sentiment():
                 })
         return results
 
-    sentiment["short_term"] = analyze_sentiment_for_range("short_term")
+    try:
+        sentiment["short_term"] = analyze_sentiment_for_range("short_term")
 
-    sentiment["medium_term"] = analyze_sentiment_for_range("medium_term")
+        sentiment["medium_term"] = analyze_sentiment_for_range("medium_term")
 
-    sentiment["long_term"] = analyze_sentiment_for_range("long_term")
+        sentiment["long_term"] = analyze_sentiment_for_range("long_term")
 
-    return jsonify(sentiment)
+        return jsonify(sentiment)
+    except Exception as e:
+        print("Error in /get-sentiment:", e)
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
