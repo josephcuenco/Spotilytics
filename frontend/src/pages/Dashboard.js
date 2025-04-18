@@ -261,17 +261,41 @@ const Dashboard = () => {
               user_id: user.id,
             },
           });
-      
+          
           const sentimentData = response.data;
-      
-          const updateTracksWithSentiment = (originalTracks, sentimentTracks) => {
+          let mostPositive = {"short_term":[], "medium_term":[], "long_term":[]};
+          let mostNegative = {"short_term":[], "medium_term":[], "long_term":[]};
+
+
+          const updateTracksWithSentiment = (originalTracks, sentimentTracks, timeRange) => {
             return originalTracks.map((track) => {
               const match = sentimentTracks.find(
                 (sTrack) =>
                   sTrack.name === track.name &&
                   (!sTrack.artist || sTrack.artist === track.artist)
               );
-      
+              console.log(match.sentiment);
+
+              // Top 5 most positive by sentiment.pos
+                if (match.sentiment?.pos > 0) {
+                    mostPositive[timeRange].push(match);
+                    mostPositive[timeRange].sort((a, b) => b.sentiment.pos - a.sentiment.pos);
+                    if (mostPositive[timeRange].length > 5) {
+                    mostPositive[timeRange].pop(); // remove weakest positive
+                    }
+                }
+                
+                // Top 5 most negative by sentiment.neg
+                if (match.sentiment?.neg > 0) {
+                    mostNegative[timeRange].push(match);
+                    mostNegative[timeRange].sort((a, b) => b.sentiment.neg - a.sentiment.neg);
+                    if (mostNegative[timeRange].length > 5) {
+                    mostNegative[timeRange].pop(); // remove weakest negative
+                    }
+                }
+  
+
+
               return match
                 ? {
                     ...track,
@@ -283,17 +307,23 @@ const Dashboard = () => {
       
           setTopDataShort((prev) => ({
             ...prev,
-            topTracks: updateTracksWithSentiment(prev.topTracks, sentimentData.short_term),
+            topTracks: updateTracksWithSentiment(prev.topTracks, sentimentData.short_term, "short_term"),
+            mostPositiveSent: mostPositive["short_term"],
+            mostNegativeSent: mostNegative["short_term"]
           }));
       
           setTopDataMedium((prev) => ({
             ...prev,
-            topTracks: updateTracksWithSentiment(prev.topTracks, sentimentData.medium_term),
+            topTracks: updateTracksWithSentiment(prev.topTracks, sentimentData.medium_term, "medium_term"),
+            mostPositiveSent: mostPositive["medium_term"],
+            mostNegativeSent: mostNegative["medium_term"]
           }));
       
           setTopDataLong((prev) => ({
             ...prev,
-            topTracks: updateTracksWithSentiment(prev.topTracks, sentimentData.long_term),
+            topTracks: updateTracksWithSentiment(prev.topTracks, sentimentData.long_term, "long_term"),
+            mostPositiveSent: mostPositive["long_term"],
+            mostNegativeSent: mostNegative["long_term"]
           }));
 
           

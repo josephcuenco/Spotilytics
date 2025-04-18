@@ -13,9 +13,50 @@ const TopSongs = () => {
           topDataLong,
         } = useTopData();
 
-  const [currentData, setCurrentData] = useState({ topTracks: [], languageDistribution: {}})
-  const [sentimentAvg, setSentimentAvg] = useState(0);
+  const [currentData, setCurrentData] = useState({ topTracks: [], languageDistribution: {}, mostPositive: [], mostNegative: []})
+  const [posAvg, setPosAvg] = useState(0);
+  const [negAvg, setNegAvg] = useState(0);
   const [hoveredTrack, setHoveredTrack] = useState(null); // State to track which track is hovered
+
+  const sentimentData = [
+    ...(currentData?.mostPositiveSent || []),
+    ...(currentData?.mostNegativeSent || [])
+  ].map(track => ({
+    name: track.name,
+    artist: track.artist,
+    positive: track.sentiment?.pos ?? 0,
+    negative: track.sentiment?.neg ?? 0
+  }));
+  
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload?.length) {
+      const { artist } = payload[0].payload;
+  
+      return (
+        <div style={{
+          backgroundColor: "#1e1e1e",
+          border: "1px solid #555",
+          borderRadius: "8px",
+          padding: "10px",
+          color: "#fff",
+          fontSize: "14px"
+        }}>
+          <p style={{ marginBottom: 4 }}><strong>{label}</strong> by {artist}</p>
+          {payload.map((entry, i) => (
+            <p key={i} style={{ color: entry.color, margin: 0 }}>
+              {entry.name}: <strong>{entry.value.toFixed(3)}</strong>
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+  
+  
+  
+  
+  
 
 
   // const [loading, setLoading] = useState(false);
@@ -64,33 +105,48 @@ const TopSongs = () => {
   useEffect(() => {
     if (timeRange === "short_term") {
       setCurrentData(topDataShort);
-      setSentimentAvg(
-        topDataShort.topTracks
-          .filter(t => t.sentiment) // Ensure the track has sentiment data
-          .map(t => t.sentiment.compound) // Extract the compound score
-          .reduce((a, b) => a + b, 0) / topDataShort.topTracks.filter(t => t.sentiment).length // Compute average
-      );
-      console.log(topDataShort.topTracks);
+
+
+
+      setPosAvg( topDataShort.topTracks
+      .filter(t => t.sentiment) // Ensure the track has sentiment data
+      .map(t => t.sentiment.pos) // Extract the compound score
+      .reduce((a, b) => a + b, 0) / topDataShort.topTracks.filter(t => t.sentiment).length // Compute average
+        );
+      setNegAvg( topDataShort.topTracks
+      .filter(t => t.sentiment) // Ensure the track has sentiment data
+      .map(t => t.sentiment.neg) // Extract the compound score
+      .reduce((a, b) => a + b, 0) / topDataShort.topTracks.filter(t => t.sentiment).length // Compute average
+        );
+
       
 
     } else if (timeRange === "medium_term") {
       setCurrentData(topDataMedium);
-      setSentimentAvg(
-        topDataMedium.topTracks
-          .filter(t => t.sentiment) // Ensure the track has sentiment data
-          .map(t => t.sentiment.compound) // Extract the compound score
-          .reduce((a, b) => a + b, 0) / topDataShort.topTracks.filter(t => t.sentiment).length // Compute average
-      );
+      setPosAvg( topDataMedium.topTracks
+        .filter(t => t.sentiment) // Ensure the track has sentiment data
+        .map(t => t.sentiment.pos) // Extract the compound score
+        .reduce((a, b) => a + b, 0) / topDataMedium.topTracks.filter(t => t.sentiment).length // Compute average
+          );
+        setNegAvg( topDataMedium.topTracks
+        .filter(t => t.sentiment) // Ensure the track has sentiment data
+        .map(t => t.sentiment.neg) // Extract the compound score
+        .reduce((a, b) => a + b, 0) / topDataMedium.topTracks.filter(t => t.sentiment).length // Compute average
+          );
       
 
     } else {
       setCurrentData(topDataLong);
-      setSentimentAvg(
-        topDataLong.topTracks
-          .filter(t => t.sentiment) // Ensure the track has sentiment data
-          .map(t => t.sentiment.compound) // Extract the compound score
-          .reduce((a, b) => a + b, 0) / topDataShort.topTracks.filter(t => t.sentiment).length // Compute average
-      );
+      setPosAvg( topDataLong.topTracks
+        .filter(t => t.sentiment) // Ensure the track has sentiment data
+        .map(t => t.sentiment.pos) // Extract the compound score
+        .reduce((a, b) => a + b, 0) / topDataLong.topTracks.filter(t => t.sentiment).length // Compute average
+          );
+        setNegAvg( topDataLong.topTracks
+        .filter(t => t.sentiment) // Ensure the track has sentiment data
+        .map(t => t.sentiment.neg) // Extract the compound score
+        .reduce((a, b) => a + b, 0) / topDataLong.topTracks.filter(t => t.sentiment).length // Compute average
+          );
       
 
     }
@@ -211,24 +267,86 @@ const TopSongs = () => {
               <h2 className="text-2xl font-bold text-white mb-4 mt-16">Sentiment Analysis</h2>
               <p className="text-gray-300 text-md">
                 Spotilytics uses the VADER sentiment analysis model to analyze the lyrics of each track. 
-                The sentiment score ranges from -1 (most negative) to 1 (most positive), with 0 being neutral.
+                From this model we extract positive and negative scores for each track, ranging from 0 to around 0.6, the
+                higher the score, the positive/negative the track is.
                 This particular model picks out certain words, phrases, and other elements that are considered 
                 positive or negative.This model is not perfect, and may be completely wrong for some tracks, but 
                 it can be interesting to see how a lexical analysis of the lyrics can contrast with the feel of a song's 
                 audio features.
 
               </p>
-              <div className="flex items-center space-x-4 min-h-[70px]">
                 
-                <div className="text-md font-semibold text-white">Average Sentiment</div>
-                <div className="text-xl">{sentimentAvg.toFixed(3)}</div>
-              </div>
+              <div className='flex items-center space-x-3 mt-10'>
+                <h2 className="text-xl font-bold text-white mb-4">Average Sentiment</h2>
+                  <div className="relative group">
+                    <Info className="w-4 h-4 text-white cursor-pointer mb-3" />
+                    <div className="absolute left-0 bottom-0 ml-6 w-60 bg-green-500 text-black text-md font-semibold 
+                    rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity 
+                    duration-200 p-2 pointer-events-none">
+                    Do your top tracks have a more positive or negative sentiment?
+                    </div>
+                </div>
+                </div>   
+                             
+                  <div className="flex items-center space-x-6">
+                  <div className="text-xl">Positive: {posAvg.toFixed(3)}</div>
+                  <div className="text-xl">Negative: {negAvg.toFixed(3)}</div>
+                  <div className="text-xl">Overall: {(posAvg - negAvg).toFixed(3)}</div>
+                </div>
+                
+                <div className='flex items-center space-x-3 mt-10'>
+                <h2 className="text-xl font-bold text-white mb-4">Most Positive and Negative Tracks</h2>
+                  <div className="relative group">
+                    <Info className="w-4 h-4 text-white cursor-pointer mb-3" />
+                    <div className="absolute left-0 bottom-0 ml-6 w-60 bg-green-500 text-black text-md font-semibold 
+                    rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity 
+                    duration-200 p-2 pointer-events-none">
+                    Here are the tracks with the highest positive scores followed by the highest negative scores.
+                    P.S. Sometimes a track can have both a high positive and a high negative score.
+                    </div>
+                </div>
+                </div>   
+                <ResponsiveContainer width="100%" height={600}>
+                  <BarChart
+                    layout="vertical"
+                    data={sentimentData}
+                    margin={{ top: 20, right: 30, left: 15, bottom: 20 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" domain={[0, 0.6]} />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      tick={{ fill: "#ffffff", fontSize: 14 }}
+                      interval={0}
+                      width={150}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Bar dataKey="positive" fill="#4CAF50" name="Positive Score" />
+                    <Bar dataKey="negative" fill="#535353" name="Negative Score" />
+                  </BarChart>
+                </ResponsiveContainer>
+
+
 
 
             </div>
         
          <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/2">
-         <h2 className="text-3xl font-bold text-white mb-4">Top Tracks</h2>
+
+         <div className='flex items-center space-x-3'>
+                <h2 className="text-2xl font-bold text-white mb-4">Top Tracks</h2>
+                  <div className="relative group">
+                    <Info className="w-4 h-4 text-white cursor-pointer mb-3" />
+                    <div className="absolute left-0 bottom-0 ml-6 w-60 bg-green-500 text-black text-md font-semibold 
+                    rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity 
+                    duration-200 p-2 pointer-events-none">
+                    Hover over a track to see its individual positive and negative sentiment scores!
+                    </div>
+                </div>
+                </div>   
+
             <ul className="relative space-y-6 mt-6">
                 {currentData.topTracks?.map((track, index) => (
                     <li key={index} 
@@ -253,7 +371,7 @@ const TopSongs = () => {
                         </div>
                         {hoveredTrack === track.name && track.sentiment && (
                             <div className="absolute right-0 bg-green-500 text-black font-semibold p-2 rounded shadow-lg">
-                              Sentiment: {track.sentiment.compound}
+                              Pos: {track.sentiment.pos}, Neg: {track.sentiment.neg}
                             </div>
                           )}
                         </div>
