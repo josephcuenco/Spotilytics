@@ -254,6 +254,57 @@ const Dashboard = () => {
       };
       
 
+      const fetchSentiment = async () => {
+        try {
+          const response = await axios.get("http://localhost:5000/get-sentiment", {
+            params: {
+              user_id: user.id,
+            },
+          });
+      
+          const sentimentData = response.data;
+      
+          const updateTracksWithSentiment = (originalTracks, sentimentTracks) => {
+            return originalTracks.map((track) => {
+              const match = sentimentTracks.find(
+                (sTrack) =>
+                  sTrack.name === track.name &&
+                  (!sTrack.artist || sTrack.artist === track.artist)
+              );
+      
+              return match
+                ? {
+                    ...track,
+                    sentiment: match.sentiment, // Add sentiment data
+                  }
+                : track;
+            });
+          };
+      
+          setTopDataShort((prev) => ({
+            ...prev,
+            topTracks: updateTracksWithSentiment(prev.topTracks, sentimentData.short_term),
+          }));
+      
+          setTopDataMedium((prev) => ({
+            ...prev,
+            topTracks: updateTracksWithSentiment(prev.topTracks, sentimentData.medium_term),
+          }));
+      
+          setTopDataLong((prev) => ({
+            ...prev,
+            topTracks: updateTracksWithSentiment(prev.topTracks, sentimentData.long_term),
+          }));
+
+          
+          return response.data;
+        } catch (error) {
+          console.error(`Error fetching sentiment:`, error);
+        }
+      };
+      
+
+
     //stores all lyrics and language distributions in context
     useEffect(() => {
     const fetchAllLyricsAndDistributions = async () => {
@@ -266,6 +317,8 @@ const Dashboard = () => {
         await fetchLyricsInChunks(topDataLong.topTracks, 5, 1000, setTopDataLong);
 
         const languageDistributions = await fetchLanguageDistributions();
+        await fetchSentiment();
+
 
         setTopDataShort(prev => ({
         ...prev,
@@ -281,7 +334,6 @@ const Dashboard = () => {
         ...prev,
         languageDistribution: languageDistributions.long_term || {},
         }));
-
     
     };
     

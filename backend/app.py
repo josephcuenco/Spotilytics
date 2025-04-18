@@ -15,6 +15,7 @@ from babel import Locale
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 from better_profanity import profanity
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 load_dotenv()
 
@@ -140,7 +141,8 @@ def store_user_top_data():
     top_tracks_list = [{"name": track["name"], 
                         "artist": track["artists"][0]["name"],
                         "lyrics": None, 
-                        "languageDistribution": None,
+                        # "languageDistribution": None,
+                        "sentiment": None,
                         "image": track["album"]["images"][0]["url"] if track["album"]["images"] else None} 
                     for track in top_tracks["items"]]
 
@@ -261,81 +263,6 @@ def get_playlist_language_distribution():
     return jsonify({"languages": avg_confidences_names})
 
 
-# @app.route("/playlist-lyrics")
-# def get_playlist_lyric_lang_data():
-#     playlist_id = request.args.get("playlist_id")
-#     user_id = request.args.get("user_id")
-
-#     if not playlist_id or not user_id:
-#         return jsonify({"error": "playlist_id and user_id are required"}), 400
-
-#     try:
-#         sp = get_spotify_client(user_id)
-#         tracks_response = sp.playlist_tracks(playlist_id, limit=50)
-#         tracks = [
-#             {
-#                 "name": t["track"]["name"],
-#                 "artist": t["track"]["artists"][0]["name"]
-#             }
-#             for t in tracks_response["items"] if t.get("track")
-#         ]
-
-#         lyrics_cache = {}
-#         seen_tracks = set()
-#         lang_confidences = defaultdict(list)
-#         length = 0
-
-#         def wrapped_process(track):
-#             key = (track["name"].lower(), track["artist"].lower())
-#             if key in seen_tracks:
-#                 return []
-#             seen_tracks.add(key)
-#             return process_track(track, lyrics_cache)
-
-#         with ThreadPoolExecutor(max_workers=10) as executor:
-#             futures = [executor.submit(wrapped_process, t) for t in tracks]
-#             for future in as_completed(futures):
-#                 for lang, conf in future.result():
-#                     lang_confidences[lang].append(conf)
-#                     length += 1
-
-#         avg_confidences = {
-#             lang: round(sum(scores) / length, 4)
-#             for lang, scores in lang_confidences.items()
-#         }
-
-#         avg_confidences_names = {
-#             get_language_name(lang): round(conf * 100, 4)
-#             for lang, conf in avg_confidences.items()
-#         }
-
-#         return jsonify({"languages": avg_confidences_names})
-    
-#     except Exception as e:
-#         return jsonify({"error": str(e)}), 500    
-
-# @app.route("/song-lyrics")
-# def get_song_lyric_lang_data():
-#     # Retrieve time range from query parameters
-#     time_range = request.args.get("time_range")
-
-#     if not time_range:
-#         return jsonify({"error": "Time Range parameter is required"}), 400
-
-#     try:
-#         avg_lang_confidences= get_top_songs_language_distribution(time_range)
-
-#         return jsonify({"languages": dict(avg_lang_confidences)})
-
-#     except ValueError as e:
-#         # Catch specific errors like song not found
-#         return jsonify({"error": str(e)}), 404
-#     except Exception as e:
-#         # Catch general errors
-#         print(f"Error: {str(e)}")  # Log to console
-#         return jsonify({"error": "Failed to fetch lyrics", "details": str(e)}), 500
-
-
 def get_language_name(lang_code):
     try:
         return Locale(lang_code).english_name
@@ -392,7 +319,6 @@ def process_track(track):
             lyrics = get_lyrics1(track["name"], track["artist"])
             if not lyrics:
                 lyrics = get_lyrics2(song_path)
-                print(lyrics)   
 
             # Save to MongoDB
             lyrics_collection.insert_one({
@@ -555,5 +481,48 @@ def gather_lyrics(track, lyrics_cache):
     except Exception:
         return []
       
+
+@app.route("/get-sentiment")
+def get_sentiment():
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Missing user_id"}), 400
+
+    sid = SentimentIntensityAnalyzer()
+
+    sentiment = {
+        "short_term": [],
+        "medium_term": [],
+        "long_term": []
+    }
+    def analyze_sentiment_for_range(time_range):
+        results = []
+        term_data = top_songs_collection.find({"time_range": time_range, "user_id": user_id})
+        for doc in term_data:
+            for track in doc.get("topTracks", []):
+                match = lyrics_collection.find_one({
+                    "name": track["name"],
+                    "artist": track["artist"]
+                })
+                lyrics = match.get("lyrics")
+                if not lyrics or not isinstance(lyrics, str):
+                    continue
+                ss = sid.polarity_scores(lyrics)
+                results.append({
+                    "name": track.get("name", "Unknown"),
+                    "sentiment": ss,
+                    "artist": track.get("artist", "Unknown")
+                })
+        return results
+
+    sentiment["short_term"] = analyze_sentiment_for_range("short_term")
+
+    sentiment["medium_term"] = analyze_sentiment_for_range("medium_term")
+
+    sentiment["long_term"] = analyze_sentiment_for_range("long_term")
+
+    return jsonify(sentiment)
+
+
 if __name__ == "__main__":
     app.run(debug=True)
