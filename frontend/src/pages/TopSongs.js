@@ -14,6 +14,9 @@ const TopSongs = () => {
         } = useTopData();
 
   const [currentData, setCurrentData] = useState({ topTracks: [], languageDistribution: {}})
+  const [sentimentAvg, setSentimentAvg] = useState(0);
+  const [hoveredTrack, setHoveredTrack] = useState(null); // State to track which track is hovered
+
 
   // const [loading, setLoading] = useState(false);
   // const [topData, setTopData] = useState({ topTracks: []});
@@ -61,10 +64,35 @@ const TopSongs = () => {
   useEffect(() => {
     if (timeRange === "short_term") {
       setCurrentData(topDataShort);
+      setSentimentAvg(
+        topDataShort.topTracks
+          .filter(t => t.sentiment) // Ensure the track has sentiment data
+          .map(t => t.sentiment.compound) // Extract the compound score
+          .reduce((a, b) => a + b, 0) / topDataShort.topTracks.filter(t => t.sentiment).length // Compute average
+      );
+      console.log(topDataShort.topTracks);
+      
+
     } else if (timeRange === "medium_term") {
       setCurrentData(topDataMedium);
+      setSentimentAvg(
+        topDataMedium.topTracks
+          .filter(t => t.sentiment) // Ensure the track has sentiment data
+          .map(t => t.sentiment.compound) // Extract the compound score
+          .reduce((a, b) => a + b, 0) / topDataShort.topTracks.filter(t => t.sentiment).length // Compute average
+      );
+      
+
     } else {
       setCurrentData(topDataLong);
+      setSentimentAvg(
+        topDataLong.topTracks
+          .filter(t => t.sentiment) // Ensure the track has sentiment data
+          .map(t => t.sentiment.compound) // Extract the compound score
+          .reduce((a, b) => a + b, 0) / topDataShort.topTracks.filter(t => t.sentiment).length // Compute average
+      );
+      
+
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeRange]);
@@ -151,7 +179,7 @@ const TopSongs = () => {
           )}
           </div>
               
-
+              {/* Average Profanity */}
               <h2 className="text-2xl font-bold text-white mb-4 mt-16">Average Profanity</h2>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data= {testAvgProfanity}>
@@ -179,13 +207,35 @@ const TopSongs = () => {
 
 
 
+              {/* Sentiment Analysis*/}
+              <h2 className="text-2xl font-bold text-white mb-4 mt-16">Sentiment Analysis</h2>
+              <p className="text-gray-300 text-md">
+                Spotilytics uses the VADER sentiment analysis model to analyze the lyrics of each track. 
+                The sentiment score ranges from -1 (most negative) to 1 (most positive), with 0 being neutral.
+                This particular model picks out certain words, phrases, and other elements that are considered 
+                positive or negative.This model is not perfect, and may be completely wrong for some tracks, but 
+                it can be interesting to see how a lexical analysis of the lyrics can contrast with the feel of a song's 
+                audio features.
+
+              </p>
+              <div className="flex items-center space-x-4 min-h-[70px]">
+                
+                <div className="text-md font-semibold text-white">Average Sentiment</div>
+                <div className="text-xl">{sentimentAvg.toFixed(3)}</div>
+              </div>
+
+
             </div>
         
          <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/2">
          <h2 className="text-3xl font-bold text-white mb-4">Top Tracks</h2>
-            <ul className="space-y-6 mt-6">
+            <ul className="relative space-y-6 mt-6">
                 {currentData.topTracks?.map((track, index) => (
-                    <li key={index} className="flex items-center space-x-4 text-gray-300 max-h-[45px]">
+                    <li key={index} 
+                    className="flex items-center space-x-4 text-gray-300 max-h-[45px]"
+                    onMouseEnter={() => setHoveredTrack(track.name)} // Set hovered track on mouse enter
+                    onMouseLeave={() => setHoveredTrack(null)} // Reset when mouse leaves
+                    >
 
                           {/* Artist info */}
                         <div className="text-xl">{index + 1}  </div>
@@ -195,9 +245,17 @@ const TopSongs = () => {
                             alt={`${track.name} artist`}
                             className="w-12 h-12 rounded shadow"
                         />
+                        <div className="flex justify-between w-full">
                         <div>
                             <div className="text-xl"> {track.name}</div>
                             <div className="text-md text-gray-400"> {track.artist}</div>
+                            
+                        </div>
+                        {hoveredTrack === track.name && track.sentiment && (
+                            <div className="absolute right-0 bg-green-500 text-black font-semibold p-2 rounded shadow-lg">
+                              Sentiment: {track.sentiment.compound}
+                            </div>
+                          )}
                         </div>
                         
                     </li>
