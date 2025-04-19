@@ -14,9 +14,10 @@ const TopSongs = () => {
           allDataFetched
         } = useTopData();
 
-  const [currentData, setCurrentData] = useState({ topTracks: [], languageDistribution: {}, mostPositive: [], mostNegative: [], wordCloud: ""})
+  const [currentData, setCurrentData] = useState({ topTracks: [], languageDistribution: {}, mostPositive: [], mostNegative: [], wordCloud: "", mostLexicalRich: [] });
   const [posAvg, setPosAvg] = useState(0);
   const [negAvg, setNegAvg] = useState(0);
+  const [lexicalAvg, setLexicalAvg] = useState(0);
   const [hoveredTrack, setHoveredTrack] = useState(null); // State to track which track is hovered
   const [wordCloud, setWordCloud] = useState("");
 
@@ -98,6 +99,7 @@ const TopSongs = () => {
     if (timeRange === "short_term") {
       
       setCurrentData(topDataShort);
+      // Set current word cloud
       if (topDataShort.wordCloud) {
         const byteCharacters = atob(topDataShort.wordCloud);
         const byteNumbers = new Array(byteCharacters.length);
@@ -111,7 +113,7 @@ const TopSongs = () => {
         setWordCloud(wordCloud);
         }
 
-
+        //set avergage sentiment scores
       setPosAvg( topDataShort.topTracks
       .filter(t => t.sentiment) // Ensure the track has sentiment data
       .map(t => t.sentiment.pos) // Extract the compound score
@@ -123,6 +125,12 @@ const TopSongs = () => {
       .reduce((a, b) => a + b, 0) / topDataShort.topTracks.filter(t => t.sentiment).length // Compute average
         );
 
+        //set lexical richness avg
+        setLexicalAvg( topDataShort.topTracks
+        .filter(t => t.lexicalRichness) // Ensure the track has lexical richness data
+        .map(t => t.lexicalRichness.mtld) // Extract the compound score
+        .reduce((a, b) => a + b, 0) / topDataShort.topTracks.filter(t => t.lexicalRichness).length // Compute average
+          );
     } else if (timeRange === "medium_term") {
 
       setCurrentData(topDataMedium);
@@ -149,7 +157,11 @@ const TopSongs = () => {
         .map(t => t.sentiment.neg) // Extract the compound score
         .reduce((a, b) => a + b, 0) / topDataMedium.topTracks.filter(t => t.sentiment).length // Compute average
           );
-      
+          setLexicalAvg( topDataMedium.topTracks
+        .filter(t => t.lexicalRichness) // Ensure the track has lexical richness data
+        .map(t => t.lexicalRichness.mtld) // Extract the compound score
+        .reduce((a, b) => a + b, 0) / topDataMedium.topTracks.filter(t => t.lexicalRichness).length // Compute average
+          );
 
     } else {
       setCurrentData(topDataLong);
@@ -176,7 +188,11 @@ const TopSongs = () => {
         .map(t => t.sentiment.neg) // Extract the compound score
         .reduce((a, b) => a + b, 0) / topDataLong.topTracks.filter(t => t.sentiment).length // Compute average
           );
-      
+          setLexicalAvg( topDataLong.topTracks
+        .filter(t => t.lexicalRichness) // Ensure the track has lexical richness data
+        .map(t => t.lexicalRichness.mtld) // Extract the compound score
+        .reduce((a, b) => a + b, 0) / topDataLong.topTracks.filter(t => t.lexicalRichness).length // Compute average
+          );
 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -382,6 +398,76 @@ const TopSongs = () => {
                         )}
                 </div>
 
+                {/* Lexical Richness */}
+              <h2 className="text-2xl font-bold text-white mb-4 mt-16">Lexical Richness</h2>
+              <p className="text-gray-300 text-md">
+                Lexical richness is a measure of how unique the vocabulary is in a text.
+                Spotilytics uses the Measure of Textual Lexical Diversity (MTLD) to calculate lexical richness.
+                MTLD calculates how many words you can go through before (Unique words / Total words) drops below 0.72.
+                The higher the MTLD score, the more lexically rich the text is. In other words, how repetitive are your top songs?
+
+              </p>
+                
+              <div className='flex items-center space-x-3 mt-10'>
+                <h2 className="text-xl font-bold text-white mb-4">Average MTLD</h2>
+                  <div className="relative group">
+                    <Info className="w-4 h-4 text-white cursor-pointer mb-3" />
+                    <div className="absolute left-0 bottom-0 ml-6 w-60 bg-green-500 text-black text-md font-semibold 
+                    rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity 
+                    duration-200 p-2 pointer-events-none">
+                    A high MTLD score is greater than 60 and a low score is less than 30.
+                    How does your average compare?
+                    </div>
+                </div>
+                </div>   
+                             
+                  <div className="flex items-center space-x-6">
+                    <div className="text-xl">{lexicalAvg.toFixed(3)}</div>
+                  </div>
+
+                <div className="flex items-center space-x-3 mt-10">
+                  <h2 className="text-xl font-bold text-white mb-4">Most Lexically Rich Tracks</h2>
+                  <div className="relative group">
+                    <Info className="w-4 h-4 text-white cursor-pointer mb-3" />
+                    <div className="absolute left-0 bottom-0 ml-6 w-64 bg-green-500 text-black text-md font-semibold 
+                      rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity 
+                      duration-200 p-2 pointer-events-none z-10">
+                      These are your top 5 tracks with the most varied vocabulary and linguistic richness.
+                    </div>
+                  </div>
+                </div>
+
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart
+                    layout="vertical"
+                    data={currentData.mostLexicalRich}
+                    margin={{ top: 20, right: 30, left: 15, bottom: 20 }}
+                    barCategoryGap="15%"
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      type="number"
+                      domain={[0, 'dataMax + 5']}
+                      tick={{ fill: "#ffffff" }}
+                      label={{ value: "MTLD Score", position: "insideBottomRight", fill: "#ffffff", offset: 0 }}
+                    />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      tick={{ fill: "#ffffff", fontSize: 14 }}
+                      interval={0}
+                      width={180}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Bar dataKey="mtld" fill="#1DB954" name="MTLD Score" />
+                  </BarChart>
+                </ResponsiveContainer>
+
+
+
+
+
 
 
 
@@ -396,7 +482,7 @@ const TopSongs = () => {
                     <div className="absolute left-0 bottom-0 ml-6 w-60 bg-green-500 text-black text-md font-semibold 
                     rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity 
                     duration-200 p-2 pointer-events-none">
-                    Hover over a track to see its individual positive and negative sentiment scores!
+                    Hover over a track to see its individual sentiment and MLTD scores!
                     </div>
                 </div>
                 </div>   
@@ -425,7 +511,7 @@ const TopSongs = () => {
                         </div>
                         {hoveredTrack === track.name && track.sentiment && (
                             <div className="absolute right-0 bg-green-500 text-black font-semibold p-2 rounded shadow-lg">
-                              Pos: {track.sentiment.pos}, Neg: {track.sentiment.neg}
+                              Pos: {track.sentiment.pos}, Neg: {track.sentiment.neg}, MTLD: {(track.lexicalRichness.mtld)}
                             </div>
                           )}
                         </div>
