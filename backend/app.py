@@ -153,6 +153,10 @@ def store_user_top_data():
                             "hdd": None,
                             "mattr": None
                         },
+                        "profanity": {
+                        "profane_word_count": None,
+                        "profanity_ratio": None,
+                        },
                         "image": track["album"]["images"][0]["url"] if track["album"]["images"] else None} 
                     for track in top_tracks["items"]]
 
@@ -443,53 +447,66 @@ def clean_lyrics(raw_lyrics):
 
     return cleaned
 
-@app.route("/song-lyrics/profanity")
-def get_song_lyric_profanity_data():
-    # Retrieve time range from query parameters
-    time_range = request.args.get("time_range")
+from better_profanity import profanity
 
-    if not time_range:
-        return jsonify({"error": "Time Range parameter is required"}), 400
+@app.route("/get-top-songs-profanity")
+def get_top_songs_profanity():
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Missing user_id"}), 400
+
+    profanity_results = {
+        "short_term": [],
+        "medium_term": [],
+        "long_term": []
+    }
+
+    def compute_profanity_for_range(time_range):
+        results = []
+        term_data = top_songs_collection.find({"time_range": time_range, "user_id": user_id})
+
+        for doc in term_data:
+            for track in doc.get("topTracks", []):
+                match = lyrics_collection.find_one({
+                    "name": track["name"],
+                    "artist": track["artist"]
+                })
+
+                lyrics = match.get("lyrics") if match else None
+                if not lyrics or not isinstance(lyrics, str):
+                    continue
+
+                try:
+                    profanity.load_censor_words()
+                    # Count number of profane words
+                    words = lyrics.split()
+                    profane_count = sum(1 for word in words if profanity.contains_profanity(word))
+                    total_words = len(words)
+
+                    result = {
+                        "name": track.get("name", "Unknown"),
+                        "artist": track.get("artist", "Unknown"),
+                        "profane_word_count": profane_count,
+                        "profanity_ratio": round(profane_count / total_words, 3) if total_words > 0 else 0,
+                    }
+
+                    results.append(result)
+                except Exception as e:
+                    print(f"Error processing track '{track.get('name')}':", e)
+                    continue
+
+        return results
+
     try:
-        #profanity_data = get_top_songs_profanity(time_range)
-        print("Success")
-        return jsonify([{"name": "test", "avgProf": 10, "avgWord": 100}])
+        profanity_results["short_term"] = compute_profanity_for_range("short_term")
+        profanity_results["medium_term"] = compute_profanity_for_range("medium_term")
+        profanity_results["long_term"] = compute_profanity_for_range("long_term")
 
-    except ValueError as e:
-        # Catch specific errors like song not found
-        return jsonify({"error": str(e)}), 404
+        return jsonify(profanity_results)
     except Exception as e:
-        # Catch general errors
-        print(f"Error: {str(e)}")  # Log to console
-        return jsonify({"error": "Failed to fetch lyrics", "details": str(e)}), 500
-    
+        print("Error in /get-top-songs-profanity:", e)
+        return jsonify({"error": str(e)}), 500
 
-
-def get_profanity_count(clean_lyrics):
-    censored_lyrics = profanity.censor(clean_lyrics)
-
-    # better-profanity replaces detected profanity with "****" string
-    profanity_count = censored_lyrics.count("****")
-    
-    return profanity_count
-
-# In progress, altering process_track() structure to return song lyrics for profanity analysis
-def gather_lyrics(track, lyrics_cache):
-    try:
-        key = (track["name"].lower(), track["artist"].lower())
-        if key in lyrics_cache:
-            lyrics = lyrics_cache[key]
-        else:
-            song_path = search_song(track["name"], track["artist"])
-            lyrics = get_lyrics1(track["name"], track["artist"])
-            if not lyrics:
-                lyrics = get_lyrics2(song_path)
-            lyrics_cache[key] = lyrics  # cache it
-
-        detected = detect_langs(lyrics)
-        return [(lang.lang, round(lang.prob, 2)) for lang in detected]
-    except Exception:
-        return []
       
 
 @app.route("/get-sentiment")
@@ -593,6 +610,7 @@ def get_wordclouds():
         print("Error in /get-wordclouds:", e)
         return jsonify({"error": str(e)}), 500
     
+
 @app.route("/get-top-songs-lex-richness")
 def get_top_songs_lex_richness():
     user_id = request.args.get("user_id")

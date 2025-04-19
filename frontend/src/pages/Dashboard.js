@@ -416,6 +416,71 @@ const Dashboard = () => {
           console.error(`Error fetching lexical richness:`, error);
         }
       };
+
+
+      const fetchProfanity = async () => {
+        try {
+          const response = await axios.get("http://localhost:5000/get-top-songs-profanity", {
+            params: {
+              user_id: user.id,
+            },
+          });
+      
+          const profanityData = response.data;
+          let mostProfane = { short_term: [], medium_term: [], long_term: [] };
+      
+          const updateTracksWithProfanity = (originalTracks, profanityTracks, timeRange) => {
+            return originalTracks.map((track) => {
+              const match = profanityTracks.find(
+                (pTrack) =>
+                  pTrack.name === track.name &&
+                  (!pTrack.artist || pTrack.artist === track.artist)
+              );
+      
+              if (match?.profane_word_count > 0) {
+                mostProfane[timeRange].push(match);
+                mostProfane[timeRange].sort((a, b) => b.profane_word_count - a.profane_word_count);
+                if (mostProfane[timeRange].length > 5) {
+                  mostProfane[timeRange].pop(); 
+                }
+              }
+      
+              return match
+                ? {
+                    ...track,
+                    profanity: {
+                      profane_word_count: match.profane_word_count,
+                      profanity_ratio: match.profanity_ratio,
+                    },
+                  }
+                : track;
+            });
+          };
+      
+          setTopDataShort((prev) => ({
+            ...prev,
+            topTracks: updateTracksWithProfanity(prev.topTracks, profanityData.short_term, "short_term"),
+            mostProfane: mostProfane["short_term"]
+          }));
+      
+          setTopDataMedium((prev) => ({
+            ...prev,
+            topTracks: updateTracksWithProfanity(prev.topTracks, profanityData.medium_term, "medium_term"),
+            mostProfane: mostProfane["medium_term"]
+          }));
+      
+          setTopDataLong((prev) => ({
+            ...prev,
+            topTracks: updateTracksWithProfanity(prev.topTracks, profanityData.long_term, "long_term"),
+            mostProfane: mostProfane["long_term"]
+          }));
+      
+          return profanityData;
+        } catch (error) {
+          console.error(`Error fetching profanity data:`, error);
+        }
+      };
+      
       
 
 
@@ -434,6 +499,7 @@ const Dashboard = () => {
         await fetchSentiment();
         await fetchWordClouds();
         await fetchLexicalRichness();
+        await fetchProfanity();
 
 
         setTopDataShort(prev => ({

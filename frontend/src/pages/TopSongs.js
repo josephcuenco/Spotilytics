@@ -14,10 +14,11 @@ const TopSongs = () => {
           allDataFetched
         } = useTopData();
 
-  const [currentData, setCurrentData] = useState({ topTracks: [], languageDistribution: {}, mostPositive: [], mostNegative: [], wordCloud: "", mostLexicalRich: [] });
+  const [currentData, setCurrentData] = useState({ topTracks: [], languageDistribution: {}, mostPositive: [], mostNegative: [], wordCloud: "", mostLexicalRich: [], mostProfane: [] });
   const [posAvg, setPosAvg] = useState(0);
   const [negAvg, setNegAvg] = useState(0);
   const [lexicalAvg, setLexicalAvg] = useState(0);
+  const [profanityAvg, setProfanityAvg] = useState(0);
   const [hoveredTrack, setHoveredTrack] = useState(null); // State to track which track is hovered
   const [wordCloud, setWordCloud] = useState("");
 
@@ -56,13 +57,7 @@ const TopSongs = () => {
     return null;
   };
 
-  // const [loading, setLoading] = useState(false);
-  // const [topData, setTopData] = useState({ topTracks: []});
-  //const [testVar, setTestVar] = useState(null);
   const testAvgProfanity = [{"name": "test", "avgProf": 10, "avgWord": 100}];
-  const testProfaneTracks = [{"name": "Song 1", "profanity_count": 10}, {"name": "Song 2", "profanity_count": 8},
-                             {"name": "Song 3", "profanity_count": 7}, {"name": "Song 4", "profanity_count": 6},
-                             {"name": "Song 5", "profanity_count": 5}];
   
   const COLORS = [
   '#1DB954', // Spotify green
@@ -74,26 +69,6 @@ const TopSongs = () => {
   '#28A745'  // subtle green
   ];
   
-  
-
-  // useEffect(() => {
-  //   const fetchData = async () => {
-  //     const params = new URLSearchParams(window.location.search);
-  //       const userId = params.get("user_id");
-
-  //     // Profanity Backend Link In Progress
-  //     /*
-  //     const profan_response = await fetch(
-  //       `http://localhost:5000/song-lyrics/profanity?time_range=${encodeURIComponent(timeRange)}`
-  //     );
-
-  //     const data = await profan_response.json();
-  //     setTestVar(data);
-  //     */
-  //    )
-      
-  //     setLoading(false);
-  //   };
 
   useEffect(() => {
     if (timeRange === "short_term") {
@@ -131,6 +106,15 @@ const TopSongs = () => {
         .map(t => t.lexicalRichness.mtld) // Extract the compound score
         .reduce((a, b) => a + b, 0) / topDataShort.topTracks.filter(t => t.lexicalRichness).length // Compute average
           );
+
+          //set profanity avg
+          setProfanityAvg( topDataShort.topTracks
+        .filter(t => t.profanity) // Ensure the track has profanity data
+        .map(t => t.profanity.profane_word_count) // Extract the compound score
+        .reduce((a, b) => a + b, 0) / topDataShort.topTracks.filter(t => t.profanity).length // Compute average
+          );
+
+
     } else if (timeRange === "medium_term") {
 
       setCurrentData(topDataMedium);
@@ -162,6 +146,11 @@ const TopSongs = () => {
         .map(t => t.lexicalRichness.mtld) // Extract the compound score
         .reduce((a, b) => a + b, 0) / topDataMedium.topTracks.filter(t => t.lexicalRichness).length // Compute average
           );
+          setProfanityAvg( topDataMedium.topTracks
+        .filter(t => t.profanity) // Ensure the track has profanity data
+        .map(t => t.profanity.profane_word_count) // Extract the compound score
+        .reduce((a, b) => a + b, 0) / topDataMedium.topTracks.filter(t => t.profanity).length // Compute average
+          );
 
     } else {
       setCurrentData(topDataLong);
@@ -192,6 +181,11 @@ const TopSongs = () => {
         .filter(t => t.lexicalRichness) // Ensure the track has lexical richness data
         .map(t => t.lexicalRichness.mtld) // Extract the compound score
         .reduce((a, b) => a + b, 0) / topDataLong.topTracks.filter(t => t.lexicalRichness).length // Compute average
+          );
+          setProfanityAvg( topDataLong.topTracks
+        .filter(t => t.profanity) // Ensure the track has profanity data
+        .map(t => t.profanity.profane_word_count) // Extract the compound score
+        .reduce((a, b) => a + b, 0) / topDataLong.topTracks.filter(t => t.profanity).length // Compute average
           );
 
     }
@@ -230,86 +224,8 @@ const TopSongs = () => {
 
       <div className="flex justify-between space-x-6 mt-16 ml-32 mr-16">
             <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/2">
-
-          <div className='flex items-center space-x-3'>
-          <h2 className="text-2xl font-bold text-white mb-4">Language Distribution</h2>
-            <div className="relative group">
-              <Info className="w-4 h-4 text-white cursor-pointer mb-3" />
-              <div className="absolute left-0 bottom-0 ml-6 w-60 bg-green-500 text-black text-md font-semibold 
-              rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity 
-              duration-200 p-2 pointer-events-none">
-              Spotilytics' language detection is not perfect, which is why there is an uncertain percentage!
-              P.S. If the distribution looks wrong, try refreshing the page.
-              </div>
-          </div>
-          </div>
-            {/*languageDistribution*/}
-          <div className='flex justify-center items-center min-h-[250px]'>
-            {!currentData.languageDistribution ? (
-                <div className="w-12 h-12 border-4 border-green-500 border-dashed rounded-full animate-spin
-                "> </div>
-
-              ) : ( 
-          currentData.languageDistribution && (
-
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={Object.entries(currentData.languageDistribution).map(([language, value]) => ({
-                    name: language,
-                    value: value,
-                  }))}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  label
-                  stroke="none" 
-                  labelLine={false}
-                >
-                  {Object.keys(currentData.languageDistribution).map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          )
-          )}
-          </div>
-              
-              {/* Average Profanity */}
-              <h2 className="text-2xl font-bold text-white mb-4 mt-16">Average Profanity</h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data= {testAvgProfanity}>
-                  <XAxis dataKey="name"/>
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="avgProf" fill="#535353" />
-                  <Bar dataKey="avgWord" fill="#1DB954" />
-                </BarChart>
-              </ResponsiveContainer>
-
-              <h2 className="text-2xl font-bold text-white mb-4 mt-16">Most Profane Tracks</h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data= {testProfaneTracks}>
-                  <CartesianGrid strokeDasharray="3"/>
-                  <XAxis dataKey="name"/>
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="profanity_count" fill="#1DB954" />
-                </BarChart>
-              </ResponsiveContainer>
-
-
-
-
               {/* Sentiment Analysis*/}
-              <h2 className="text-2xl font-bold text-white mb-4 mt-16">Sentiment Analysis</h2>
+              <h2 className="text-2xl font-bold text-white mb-4">Sentiment Analysis</h2>
               <p className="text-gray-300 text-md">
                 Spotilytics uses the VADER sentiment analysis model to analyze the lyrics of each track. 
                 From this model we extract positive and negative scores for each track, ranging from 0 to around 0.6, the
@@ -464,7 +380,113 @@ const TopSongs = () => {
                   </BarChart>
                 </ResponsiveContainer>
 
+                <div className='flex items-center space-x-3'>
+          <h2 className="text-2xl font-bold text-white mb-4 mt-10">Language Distribution</h2>
+            <div className="relative group">
+              <Info className="w-4 h-4 text-white cursor-pointer mb-3 mt-10" />
+              <div className="absolute left-0 bottom-0 ml-6 w-60 bg-green-500 text-black text-md font-semibold 
+              rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity 
+              duration-200 p-2 pointer-events-none">
+              Spotilytics' language detection is not perfect, which is why there is an uncertain percentage!
+              P.S. If the distribution looks wrong, try refreshing the page.
+              </div>
+          </div>
+          </div>
+            {/*languageDistribution*/}
+          <div className='flex justify-center items-center min-h-[250px]'>
+            {!currentData.languageDistribution ? (
+                <div className="w-12 h-12 border-4 border-green-500 border-dashed rounded-full animate-spin
+                "> </div>
 
+              ) : ( 
+          currentData.languageDistribution && (
+
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={Object.entries(currentData.languageDistribution).map(([language, value]) => ({
+                    name: language,
+                    value: value,
+                  }))}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label
+                  stroke="none" 
+                  labelLine={false}
+                >
+                  {Object.keys(currentData.languageDistribution).map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          )
+          )}
+          </div>
+              
+              {/* Average Profanity */}
+              {/* <ResponsiveContainer width="100%" height={300}>
+                <BarChart data= {testAvgProfanity}>
+                  <XAxis dataKey="name"/>
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="avgProf" fill="#535353" />
+                  <Bar dataKey="avgWord" fill="#1DB954" />
+                </BarChart>
+              </ResponsiveContainer> */}
+              <div className='flex items-center space-x-3 mt-10'>
+                <h2 className="text-2xl font-bold text-white mb-4">Profanity</h2>
+                  <div className="relative group">
+                    <Info className="w-4 h-4 text-white cursor-pointer mb-3" />
+                    <div className="absolute left-0 bottom-0 ml-6 w-60 bg-green-500 text-black text-md font-semibold 
+                    rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity 
+                    duration-200 p-2 pointer-events-none">
+                    Here is the average number of profane words in your top tracks.
+                    </div>
+                </div>
+                </div> 
+                <div className="flex items-center space-x-6">
+                  <div className="text-xl">{profanityAvg.toFixed(3)}</div>
+                </div>
+
+              <h2 className="text-2xl font-bold text-white mb-4 mt-16">Most Profane Tracks</h2>
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart
+                  layout="vertical"
+                  data={currentData.mostProfane}
+                  margin={{ top: 20, right: 30, left: 15, bottom: 20 }}
+                  barCategoryGap="15%"
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    type="number"
+                    domain={[0, 'dataMax + 5']}
+                    tick={{ fill: "#ffffff" }}
+                    label={{
+                      value: "Profane Word Count",
+                      position: "insideBottomRight",
+                      fill: "#ffffff",
+                      offset: 0
+                    }}
+                  />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    tick={{ fill: "#ffffff", fontSize: 14 }}
+                    interval={0}
+                    width={180}
+                  />
+                  <Tooltip content={CustomTooltip} />
+                  <Legend />
+                  <Bar dataKey="profane_word_count" fill="#1DB954" name="Profane Word Count" />
+                </BarChart>
+              </ResponsiveContainer>
 
 
 
@@ -482,7 +504,7 @@ const TopSongs = () => {
                     <div className="absolute left-0 bottom-0 ml-6 w-60 bg-green-500 text-black text-md font-semibold 
                     rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity 
                     duration-200 p-2 pointer-events-none">
-                    Hover over a track to see its individual sentiment and MLTD scores!
+                    Hover over a track to see its individual sentiment, MLTD, and profanity scores/count!
                     </div>
                 </div>
                 </div>   
@@ -511,7 +533,7 @@ const TopSongs = () => {
                         </div>
                         {hoveredTrack === track.name && track.sentiment && (
                             <div className="absolute right-0 bg-green-500 text-black font-semibold p-2 rounded shadow-lg">
-                              Pos: {track.sentiment.pos}, Neg: {track.sentiment.neg}, MTLD: {(track.lexicalRichness.mtld)}
+                              Pos: {track.sentiment.pos}, Neg: {track.sentiment.neg}, MTLD: {(track.lexicalRichness.mtld)}, Profanity: {(track.profanity.profane_word_count)}
                             </div>
                           )}
                         </div>
