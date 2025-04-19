@@ -16,6 +16,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 from better_profanity import profanity
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+from wordcloud import WordCloud
+from io import BytesIO
+import base64
+import random
 
 load_dotenv()
 
@@ -529,6 +533,58 @@ def get_sentiment():
         return jsonify(sentiment)
     except Exception as e:
         print("Error in /get-sentiment:", e)
+        return jsonify({"error": str(e)}), 500
+    
+
+@app.route("/get-wordclouds")
+def get_wordclouds():
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Missing user_id"}), 400
+
+    wordclouds = {
+        "short_term": None,
+        "medium_term": None,
+        "long_term": None
+    }
+    COLORS = ['#1DB954', '#FFFFFF' ]
+
+    def random_color(word, font_size, position, orientation, font_path, random_state):
+        return random.choice(COLORS)
+
+
+    def generate_wordcloud_base64(text):
+        wc = WordCloud(width=800, height=400, background_color='black', color_func=random_color).generate(text)
+        buffer = BytesIO()
+        wc.to_image().save(buffer, format="PNG")
+        return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    def create_wordcloud_for_range(time_range):
+        all_lyrics = []
+        term_data = top_songs_collection.find({"time_range": time_range, "user_id": user_id})
+        for doc in term_data:
+            for track in doc.get("topTracks", []):
+                match = lyrics_collection.find_one({
+                    "name": track["name"],
+                    "artist": track["artist"]
+                })
+                if match and isinstance(match.get("lyrics"), str):
+                    all_lyrics.append(match["lyrics"])
+        
+        if not all_lyrics:
+            return None
+        
+        full_text = " ".join(all_lyrics)
+        return generate_wordcloud_base64(full_text)
+
+    try:
+        wordclouds["short_term"] = create_wordcloud_for_range("short_term")
+        wordclouds["medium_term"] = create_wordcloud_for_range("medium_term")
+        wordclouds["long_term"] = create_wordcloud_for_range("long_term")
+
+        return jsonify(wordclouds)
+    except Exception as e:
+        print("Error in /get-wordclouds:", e)
         return jsonify({"error": str(e)}), 500
 
 

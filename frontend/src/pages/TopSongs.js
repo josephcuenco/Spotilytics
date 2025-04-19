@@ -11,12 +11,14 @@ const TopSongs = () => {
           topDataShort,
           topDataMedium,
           topDataLong,
+          allDataFetched
         } = useTopData();
 
-  const [currentData, setCurrentData] = useState({ topTracks: [], languageDistribution: {}, mostPositive: [], mostNegative: []})
+  const [currentData, setCurrentData] = useState({ topTracks: [], languageDistribution: {}, mostPositive: [], mostNegative: [], wordCloud: ""})
   const [posAvg, setPosAvg] = useState(0);
   const [negAvg, setNegAvg] = useState(0);
   const [hoveredTrack, setHoveredTrack] = useState(null); // State to track which track is hovered
+  const [wordCloud, setWordCloud] = useState("");
 
   const sentimentData = [
     ...(currentData?.mostPositiveSent || []),
@@ -52,12 +54,6 @@ const TopSongs = () => {
     }
     return null;
   };
-  
-  
-  
-  
-  
-
 
   // const [loading, setLoading] = useState(false);
   // const [topData, setTopData] = useState({ topTracks: []});
@@ -70,14 +66,10 @@ const TopSongs = () => {
   const COLORS = [
   '#1DB954', // Spotify green
   '#FFFFFF', // white
-  '#535353', // Spotify dark gray
   '#66D36E', // bright green accent
   '#23A55A', // emerald accent
-  '#3E3E3E', // mid gray
-  '#2D2D2D', // deeper black/gray
   '#5CDB95', // mint green variation
   '#1ED760', // Spotify light green
-  '#0D0D0D', // almost black
   '#28A745'  // subtle green
   ];
   
@@ -104,8 +96,20 @@ const TopSongs = () => {
 
   useEffect(() => {
     if (timeRange === "short_term") {
+      
       setCurrentData(topDataShort);
+      if (topDataShort.wordCloud) {
+        const byteCharacters = atob(topDataShort.wordCloud);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
 
+        let image = new Blob([byteArray], { type: 'image/jpeg' });
+        let wordCloud = URL.createObjectURL(image);
+        setWordCloud(wordCloud);
+        }
 
 
       setPosAvg( topDataShort.topTracks
@@ -119,10 +123,22 @@ const TopSongs = () => {
       .reduce((a, b) => a + b, 0) / topDataShort.topTracks.filter(t => t.sentiment).length // Compute average
         );
 
-      
-
     } else if (timeRange === "medium_term") {
+
       setCurrentData(topDataMedium);
+      if (topDataMedium.wordCloud) {
+        const byteCharacters = atob(topDataMedium.wordCloud);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+
+        let image = new Blob([byteArray], { type: 'image/jpeg' });
+        let wordCloud = URL.createObjectURL(image);
+        setWordCloud(wordCloud);
+        }
+
       setPosAvg( topDataMedium.topTracks
         .filter(t => t.sentiment) // Ensure the track has sentiment data
         .map(t => t.sentiment.pos) // Extract the compound score
@@ -137,6 +153,19 @@ const TopSongs = () => {
 
     } else {
       setCurrentData(topDataLong);
+      if (topDataLong.wordCloud) {
+        const byteCharacters = atob(topDataLong.wordCloud);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+
+        let image = new Blob([byteArray], { type: 'image/jpeg' });
+        let wordCloud = URL.createObjectURL(image);
+        setWordCloud(wordCloud);
+        }
+
       setPosAvg( topDataLong.topTracks
         .filter(t => t.sentiment) // Ensure the track has sentiment data
         .map(t => t.sentiment.pos) // Extract the compound score
@@ -151,7 +180,7 @@ const TopSongs = () => {
 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeRange]);
+  }, [timeRange, allDataFetched]);
 
   return (
     <div>
@@ -327,6 +356,31 @@ const TopSongs = () => {
                     <Bar dataKey="negative" fill="#535353" name="Negative Score" />
                   </BarChart>
                 </ResponsiveContainer>
+
+
+                {/* Word Cloud */}
+                <div className='flex items-center space-x-3 mt-10'>
+                <h2 className="text-xl font-bold text-white mb-4">Word Cloud</h2>
+                  <div className="relative group">
+                    <Info className="w-4 h-4 text-white cursor-pointer mb-3" />
+                    <div className="absolute left-0 bottom-0 ml-6 w-60 bg-green-500 text-black text-md font-semibold 
+                    rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity 
+                    duration-200 p-2 pointer-events-none">
+                    A word cloud that contains the most common words in all of your top tracks!
+                    </div>
+                </div>
+                </div>   
+                <div className="flex justify-center items-center min-h-[250px]">
+                    {!currentData.wordCloud ? (
+                        <div className="w-12 h-12 border-4 border-green-500 border-dashed rounded-full animate-spin
+                        "> </div>
+                        ) : ( 
+                        currentData.wordCloud && (
+                          
+                          <img src={wordCloud} alt="Word Cloud" width={600} height={600}/>
+                        )
+                        )}
+                </div>
 
 
 
