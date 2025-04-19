@@ -14,8 +14,8 @@ const Dashboard = () => {
         topDataShort, setTopDataShort,
         topDataMedium, setTopDataMedium,
         topDataLong, setTopDataLong,
-        topDataFetched, setTopDataFetched
-
+        topDataFetched, setTopDataFetched,
+        setAllDataFetched
       } = useTopData();
     
     const [currentData, setCurrentData] = useState({ topTracks: [], topArtists: [], 
@@ -274,7 +274,6 @@ const Dashboard = () => {
                   sTrack.name === track.name &&
                   (!sTrack.artist || sTrack.artist === track.artist)
               );
-              console.log(match.sentiment);
 
               // Top 5 most positive by sentiment.pos
                 if (match.sentiment?.pos > 0) {
@@ -332,7 +331,25 @@ const Dashboard = () => {
           console.error(`Error fetching sentiment:`, error);
         }
       };
+
+
+      const fetchWordClouds = async () => {
+        if (!user?.id) return;
       
+        try {
+          const response = await axios.get("http://localhost:5000/get-wordclouds", {
+            params: { user_id: user.id },
+          });
+      
+          const { short_term, medium_term, long_term } = response.data;
+      
+          setTopDataShort(prev => ({ ...prev, wordCloud: short_term }));
+          setTopDataMedium(prev => ({ ...prev, wordCloud: medium_term }));
+          setTopDataLong(prev => ({ ...prev, wordCloud: long_term }));
+        } catch (error) {
+          console.error("Error fetching word clouds:", error);
+        }
+      };      
 
 
     //stores all lyrics and language distributions in context
@@ -348,6 +365,7 @@ const Dashboard = () => {
 
         const languageDistributions = await fetchLanguageDistributions();
         await fetchSentiment();
+        await fetchWordClouds();
 
 
         setTopDataShort(prev => ({
@@ -364,6 +382,8 @@ const Dashboard = () => {
         ...prev,
         languageDistribution: languageDistributions.long_term || {},
         }));
+
+        setAllDataFetched(true);
     
     };
     
