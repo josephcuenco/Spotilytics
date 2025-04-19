@@ -20,6 +20,7 @@ from wordcloud import WordCloud
 from io import BytesIO
 import base64
 import random
+from lexicalrichness import LexicalRichness
 
 load_dotenv()
 
@@ -147,6 +148,11 @@ def store_user_top_data():
                         "lyrics": None, 
                         # "languageDistribution": None,
                         "sentiment": None,
+                        "lexicalRichness": {
+                            "mtld": None,
+                            "hdd": None,
+                            "mattr": None
+                        },
                         "image": track["album"]["images"][0]["url"] if track["album"]["images"] else None} 
                     for track in top_tracks["items"]]
 
@@ -586,7 +592,62 @@ def get_wordclouds():
     except Exception as e:
         print("Error in /get-wordclouds:", e)
         return jsonify({"error": str(e)}), 500
+    
+@app.route("/get-top-songs-lex-richness")
+def get_top_songs_lex_richness():
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Missing user_id"}), 400
 
+    richness = {
+        "short_term": [],
+        "medium_term": [],
+        "long_term": []
+    }
+
+    def compute_lexical_for_range(time_range):
+        results = []
+        term_data = top_songs_collection.find({"time_range": time_range, "user_id": user_id})
+
+        for doc in term_data:
+            for track in doc.get("topTracks", []):
+                match = lyrics_collection.find_one({
+                    "name": track["name"],
+                    "artist": track["artist"]
+                })
+
+                lyrics = match.get("lyrics") if match else None
+
+                if not lyrics or not isinstance(lyrics, str):
+                    continue
+
+                try:
+                    lex = LexicalRichness(lyrics)
+                    word_count = lex.words
+                    safe_window = min(500, word_count if word_count >= 50 else 50)
+
+                    result = {
+                        "name": track.get("name", "Unknown"),
+                        "artist": track.get("artist", "Unknown"),
+                        "mtld": round(lex.mtld(), 2) if lex.mtld() else None,
+                        "hdd": lex.hdd(draws=42),
+                        "mattr": lex.mattr(window_size=safe_window) if word_count >= safe_window else None
+                    }
+
+                    results.append(result)
+                except ZeroDivisionError:
+                    continue  # skip too-short lyrics
+        return results
+
+    try:
+        richness["short_term"] = compute_lexical_for_range("short_term")
+        richness["medium_term"] = compute_lexical_for_range("medium_term")
+        richness["long_term"] = compute_lexical_for_range("long_term")
+
+        return jsonify(richness)
+    except Exception as e:
+        print("Error in /get-lexical-richness:", e)
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -4,11 +4,11 @@ const TopDataContext = createContext();
 
 export const TopDataProvider = ({ children }) => {
   const [topDataShort, setTopDataShort] = useState({ topTracks: [], topArtists: [], artistPopularity: 0, trackPopularity: 0,
-     languageDistribution: {}, mostPositiveSent: [], mostNegativeSent: [], wordCloud: "" });
+     languageDistribution: {}, mostPositiveSent: [], mostNegativeSent: [], wordCloud: "", mostLexicalRich: [] });
   const [topDataMedium, setTopDataMedium] = useState({ topTracks: [], topArtists: [], artistPopularity: 0, trackPopularity: 0,
-     languageDistribution: {}, mostPositiveSent: [], mostNegativeSent: [], wordCloud: "" });
+     languageDistribution: {}, mostPositiveSent: [], mostNegativeSent: [], wordCloud: "", mostLexicalRich: [] });
   const [topDataLong, setTopDataLong] = useState({ topTracks: [], topArtists: [], artistPopularity: 0, trackPopularity: 0,
-     languageDistribution: {}, mostPositiveSent: [], mostNegativeSent: [], wordCloud: "" });
+     languageDistribution: {}, mostPositiveSent: [], mostNegativeSent: [], wordCloud: "", mostLexicalRich: [] });
   const [topDataFetched, setTopDataFetched] = useState(false);
   const [allDataFetched, setAllDataFetched] = useState(false);
   const [userPlaylists, setUserPlaylists] = useState({playlists: []});

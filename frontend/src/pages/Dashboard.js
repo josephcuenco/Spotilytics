@@ -352,6 +352,73 @@ const Dashboard = () => {
       };      
 
 
+      const fetchLexicalRichness = async () => {
+        try {
+          const response = await axios.get("http://localhost:5000/get-top-songs-lex-richness", {
+            params: {
+              user_id: user.id,
+            },
+          });
+      
+          const lexicalData = response.data;
+          let mostRich = { short_term: [], medium_term: [], long_term: [] };
+      
+          const updateTracksWithLexical = (originalTracks, lexicalTracks, timeRange) => {
+            return originalTracks.map((track) => {
+              const match = lexicalTracks.find(
+                (lTrack) =>
+                  lTrack.name === track.name &&
+                  (!lTrack.artist || lTrack.artist === track.artist)
+              );
+      
+              // Top 5 by MTLD (lexical richness)
+              if (match?.mtld > 0) {
+                mostRich[timeRange].push(match);
+                mostRich[timeRange].sort((a, b) => b.mtld - a.mtld);
+                if (mostRich[timeRange].length > 5) {
+                  mostRich[timeRange].pop(); // Remove weakest rich entry
+                }
+              }
+      
+              return match
+                ? {
+                    ...track,
+                    lexicalRichness: {
+                      mtld: match.mtld,
+                      hdd: match.hdd,
+                      mattr: match.mattr,
+                    },
+                  }
+                : track;
+            });
+          };
+      
+          setTopDataShort((prev) => ({
+            ...prev,
+            topTracks: updateTracksWithLexical(prev.topTracks, lexicalData.short_term, "short_term"),
+            mostLexicalRich: mostRich["short_term"]
+          }));
+      
+          setTopDataMedium((prev) => ({
+            ...prev,
+            topTracks: updateTracksWithLexical(prev.topTracks, lexicalData.medium_term, "medium_term"),
+            mostLexicalRich: mostRich["medium_term"]
+          }));
+      
+          setTopDataLong((prev) => ({
+            ...prev,
+            topTracks: updateTracksWithLexical(prev.topTracks, lexicalData.long_term, "long_term"),
+            mostLexicalRich: mostRich["long_term"]
+          }));
+      
+          return lexicalData;
+        } catch (error) {
+          console.error(`Error fetching lexical richness:`, error);
+        }
+      };
+      
+
+
     //stores all lyrics and language distributions in context
     useEffect(() => {
     const fetchAllLyricsAndDistributions = async () => {
@@ -366,6 +433,7 @@ const Dashboard = () => {
         const languageDistributions = await fetchLanguageDistributions();
         await fetchSentiment();
         await fetchWordClouds();
+        await fetchLexicalRichness();
 
 
         setTopDataShort(prev => ({

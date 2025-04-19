@@ -40,7 +40,7 @@ useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const userId = params.get("user_id");
     setUserID(user_id);
-    if(userPlaylists.length > 0)return;
+    if(userPlaylists.playlists.length > 0)return;
 
     setLoading(true); // start loading
 
@@ -59,10 +59,6 @@ useEffect(() => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-
-
-  //TRANSFERRING NEW METHOD OF LYRICS AND LANGUAGE DISTRIBUTION RETRIVEAL TO PLAYLISTS PAGE
-  //***IN PROGRESS***
 
   const fetchLanguageDistribution = async (playlist_id) => {
     const languageData = {};
@@ -154,7 +150,9 @@ useEffect(() => {
       const fetchPlaylistLyricsAndData = async () => {
         cancelFetchRef.current = false;
         if(!playlistselected)return;
+        if (userPlaylists.playlists.some(p => p.id === selectedPlaylist.id && p.languageDistribution)) return;
 
+          setLanguageLoading(true);
           const updatedTracks = await fetchLyricsInChunks(userPlaylists.playlists.find(p => p.id === selectedPlaylist.id).tracks_preview, 5, 1000, selectedPlaylist.id);
 
           if (cancelFetchRef.current) {
@@ -282,7 +280,6 @@ useEffect(() => {
                       onClick={async () => {
                         setSelectedPlaylist(playlist);
                         setPlaylistselected(true);
-                        setLanguageLoading(true);
                       }}                      
                        className="cursor-pointer m-h-[300px] bg-gray-900 p-4 rounded-lg shadow-md hover:shadow-lg hover:bg-green-700 transition duration-300"
                            >
