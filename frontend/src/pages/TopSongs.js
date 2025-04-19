@@ -56,8 +56,6 @@ const TopSongs = () => {
     }
     return null;
   };
-
-  const testAvgProfanity = [{"name": "test", "avgProf": 10, "avgWord": 100}];
   
   const COLORS = [
   '#1DB954', // Spotify green
@@ -224,6 +222,13 @@ const TopSongs = () => {
 
       <div className="flex justify-between space-x-6 mt-16 ml-32 mr-16">
             <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/2">
+              {allDataFetched ? (
+                <p></p>
+              ) : (
+                <div className='flex items-center space-x-3 mb-10 text-2xl font-bold text-green-500'>
+                <p>Please wait while we fetch all your top tracks data...</p>
+                </div>
+              )}
               {/* Sentiment Analysis*/}
               <h2 className="text-2xl font-bold text-white mb-4">Sentiment Analysis</h2>
               <p className="text-gray-300 text-md">
