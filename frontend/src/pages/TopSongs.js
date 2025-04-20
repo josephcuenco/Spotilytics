@@ -165,6 +165,7 @@ const TopSongs = () => {
         setWordCloud(wordCloud);
         }
 
+      console.log(topDataLong.topTracks);
       setPosAvg( topDataLong.topTracks
         .filter(t => t.sentiment) // Ensure the track has sentiment data
         .map(t => t.sentiment.pos) // Extract the compound score
