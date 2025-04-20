@@ -275,6 +275,10 @@ const Dashboard = () => {
                   (!sTrack.artist || sTrack.artist === track.artist)
               );
 
+              if (!match || !match.sentiment) {
+                return track; // no match or no sentiment, return original
+              }
+
               // Top 5 most positive by sentiment.pos
                 if (match.sentiment?.pos > 0) {
                     mostPositive[timeRange].push(match);
@@ -295,10 +299,10 @@ const Dashboard = () => {
   
 
 
-              return match
+              return match?.sentiment
                 ? {
                     ...track,
-                    sentiment: match.sentiment, // Add sentiment data
+                    sentiment: match?.sentiment, // Add sentiment data
                   }
                 : track;
             });
@@ -370,6 +374,10 @@ const Dashboard = () => {
                   lTrack.name === track.name &&
                   (!lTrack.artist || lTrack.artist === track.artist)
               );
+
+              if (!match || !match.mtld) {
+                return track; // no match or no lexical richness, return original
+              }
       
               // Top 5 by MTLD (lexical richness)
               if (match?.mtld > 0) {
@@ -384,9 +392,7 @@ const Dashboard = () => {
                 ? {
                     ...track,
                     lexicalRichness: {
-                      mtld: match.mtld,
-                      hdd: match.hdd,
-                      mattr: match.mattr,
+                      mtld: match.mtld
                     },
                   }
                 : track;
@@ -436,6 +442,10 @@ const Dashboard = () => {
                   pTrack.name === track.name &&
                   (!pTrack.artist || pTrack.artist === track.artist)
               );
+
+              if (!match || !match.profane_word_count) {
+                return track; // no match or no profanity, return original
+              }
       
               if (match?.profane_word_count > 0) {
                 mostProfane[timeRange].push(match);

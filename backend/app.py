@@ -150,8 +150,6 @@ def store_user_top_data():
                         "sentiment": None,
                         "lexicalRichness": {
                             "mtld": None,
-                            "hdd": None,
-                            "mattr": None
                         },
                         "profanity": {
                         "profane_word_count": None,
@@ -648,8 +646,6 @@ def get_top_songs_lex_richness():
                         "name": track.get("name", "Unknown"),
                         "artist": track.get("artist", "Unknown"),
                         "mtld": round(lex.mtld(), 2) if lex.mtld() else None,
-                        "hdd": lex.hdd(draws=42),
-                        "mattr": lex.mattr(window_size=safe_window) if word_count >= safe_window else None
                     }
 
                     results.append(result)
