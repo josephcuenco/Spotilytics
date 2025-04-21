@@ -11,7 +11,7 @@ export const TopDataProvider = ({ children }) => {
      languageDistribution: {}, mostPositiveSent: [], mostNegativeSent: [], wordCloud: "", mostLexicalRich: [], mostProfane: [] });
   const [topDataFetched, setTopDataFetched] = useState(false);
   const [allDataFetched, setAllDataFetched] = useState(false);
-  const [userPlaylists, setUserPlaylists] = useState({playlists: []});
+  const [userPlaylists, setUserPlaylists] = useState([]);
 
 
   return (

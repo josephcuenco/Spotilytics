@@ -165,7 +165,6 @@ const TopSongs = () => {
         setWordCloud(wordCloud);
         }
 
-      console.log(topDataLong.topTracks);
       setPosAvg( topDataLong.topTracks
         .filter(t => t.sentiment) // Ensure the track has sentiment data
         .map(t => t.sentiment.pos) // Extract the compound score
@@ -194,12 +193,16 @@ const TopSongs = () => {
   return (
     <div>
 
-      <div className="flex justify-between space-x-6 ml-32 mt-8 mr-16">
-        <h1 className="text-5xl font-bold ml-16 mt-8 w-1/2">
+      <div className="flex justify-between space-x-6 ml-32 mr-16">
+        <div className=' ml-16 mt-8 w-1/2'>
+        <h1 className="text-5xl font-bold">
             Top Track trends!
         </h1>
-
-        <div className="flex space-x-4 mb-3 justify-center mt-3 min-h-[90px] w-1/2">
+        <p className="text-gray-300 text-lg mt-5">
+          All of this data is based on the lyrics of your top tracks!
+        </p>
+        </div>
+        <div className="flex space-x-4 mb-3 justify-center mt-6 min-h-[90px] w-1/2">
             <button 
                 onClick={() => setTimeRange("short_term")} 
                 className={`px-4 py-2 max-w-[110px] rounded-full ${timeRange === "short_term" ? "bg-green-500 text-black" : "bg-gray-900 text-white"} transition 
@@ -235,9 +238,9 @@ const TopSongs = () => {
               <p className="text-gray-300 text-md">
                 Spotilytics uses the VADER sentiment analysis model to analyze the lyrics of each track. 
                 From this model we extract positive and negative scores for each track, ranging from 0 to around 0.6, the
-                higher the score, the positive/negative the track is.
+                higher the score, the more positive/negative the track is.
                 This particular model picks out certain words, phrases, and other elements that are considered 
-                positive or negative.This model is not perfect, and may be completely wrong for some tracks, but 
+                positive or negative. This model is not perfect, and may be completely wrong for some tracks, but 
                 it can be interesting to see how a lexical analysis of the lyrics can contrast with the feel of a song's 
                 audio features.
 
@@ -326,7 +329,7 @@ const TopSongs = () => {
                 Lexical richness is a measure of how unique the vocabulary is in a text.
                 Spotilytics uses the Measure of Textual Lexical Diversity (MTLD) to calculate lexical richness.
                 MTLD calculates how many words you can go through before (Unique words / Total words) drops below 0.72.
-                The higher the MTLD score, the more lexically rich the text is. In other words, how repetitive are your top songs?
+                The higher the MTLD score, the more lexically rich the text is. In other words, how repetitive are the lyrics in your top songs?
 
               </p>
                 
@@ -386,6 +389,7 @@ const TopSongs = () => {
                   </BarChart>
                 </ResponsiveContainer>
 
+            {/*languageDistribution*/}
                 <div className='flex items-center space-x-3'>
           <h2 className="text-2xl font-bold text-white mb-4 mt-10">Language Distribution</h2>
             <div className="relative group">
@@ -398,7 +402,7 @@ const TopSongs = () => {
               </div>
           </div>
           </div>
-            {/*languageDistribution*/}
+
           <div className='flex justify-center items-center min-h-[250px]'>
             {!currentData.languageDistribution ? (
                 <div className="w-12 h-12 border-4 border-green-500 border-dashed rounded-full animate-spin
@@ -435,17 +439,9 @@ const TopSongs = () => {
           )}
           </div>
               
+              
+              
               {/* Average Profanity */}
-              {/* <ResponsiveContainer width="100%" height={300}>
-                <BarChart data= {testAvgProfanity}>
-                  <XAxis dataKey="name"/>
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="avgProf" fill="#535353" />
-                  <Bar dataKey="avgWord" fill="#1DB954" />
-                </BarChart>
-              </ResponsiveContainer> */}
               <div className='flex items-center space-x-3 mt-10'>
                 <h2 className="text-2xl font-bold text-white mb-4">Profanity</h2>
                   <div className="relative group">
@@ -514,7 +510,7 @@ const TopSongs = () => {
                     </div>
                 </div>
                 </div>   
-
+            {currentData.topTracks?.length > 0 ? (
             <ul className="relative space-y-6 mt-6">
                 {currentData.topTracks?.map((track, index) => (
                     <li key={index} 
@@ -523,7 +519,6 @@ const TopSongs = () => {
                     onMouseLeave={() => setHoveredTrack(null)} // Reset when mouse leaves
                     >
 
-                          {/* Artist info */}
                         <div className="text-xl">{index + 1}  </div>
                         {/* Artist image */}
                         <img
@@ -547,6 +542,23 @@ const TopSongs = () => {
                     </li>
                 ))}
             </ul>
+            ) : (
+              <ul className="space-y-6 mt-6">
+              {Array.from({ length: 15 }).map((_, idx) => (
+              <li
+                key={idx}
+                className="flex items-center space-x-4 max-h-[45px] animate-pulse"
+              >
+                <div className="text-xl text-gray-500">{idx + 1}</div>
+                <div className="w-12 h-12 bg-gray-700 rounded shadow" />
+                <div>
+                  <div className="bg-gray-700 h-5 w-40 mb-1 rounded" />
+                  <div className="bg-gray-600 h-4 w-24 rounded" />
+                </div>
+              </li>
+            ))}
+            </ul>
+          )}
      </div>
       </div>
     </div>
