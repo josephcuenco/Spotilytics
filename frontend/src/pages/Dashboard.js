@@ -625,9 +625,15 @@ const Dashboard = () => {
 
 
                     <div className="flex justify-between items-center space-x-6 ml-26 mt-8 mr-16">
-                        <div className="flex items-center text-5xl font-bold ml-16 w-1/2">
+                        <div className="text-5xl ml-16 w-1/2">
+                            <div className=' flex items-center '>
                             <img src={user?.images[0]?.url} alt="Profile" className="w-20 h-20 ml-20 rounded-full" />
-                            <h className="ml-10">Welcome, {user?.display_name}!</h>
+                            <h className="ml-10  font-bold">Welcome, {user?.display_name}!</h>
+                            </div>
+                            <p className="text-gray-300 text-lg mt-5 ml-20">
+                              Here are your top tracks and artists. Explore Spotilytics 
+                              to find some interesting data about your music (that you cant find anywhere else)!
+                            </p>
                         </div>
 
                         <div className="flex space-x-4 mb-3 mt-6 ml-12 min-h-[90px] w-1/3">
@@ -686,6 +692,7 @@ const Dashboard = () => {
                             {/* Top Artists */}
                             <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/2">
                                 <h2 className="text-3xl font-bold text-white mb-4">Top Artists</h2>
+                                {dataStored ? (
                                 <ul className="space-y-6 mt-6">
                                     {currentData.topArtists?.map((artist, index) => (
                                         <li key={index} className="flex items-center space-x-4 text-gray-300  max-h-[45px]">
@@ -703,11 +710,29 @@ const Dashboard = () => {
                                         </li>
                                     ))}
                                 </ul>
+                                ) : (
+                                  <ul className="space-y-6 mt-6">
+                                    {Array.from({ length: 15 }).map((_, idx) => (
+                                      <li
+                                        key={idx}
+                                        className="flex items-center space-x-4 max-h-[45px] animate-pulse"
+                                      >
+                                        <div className="text-xl text-gray-500">{idx + 1}</div>
+                                        <div className="w-12 h-12 bg-gray-700 rounded shadow" />
+                                        <div>
+                                          <div className="bg-gray-700 h-5 w-40 mb-1 rounded" />
+                                          <div className="bg-gray-600 h-4 w-24 rounded" />
+                                        </div>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
                             </div>
 
                             {/* Top Tracks */}
                             <div className="bg-gray-900 p-6 rounded-lg shadow-md w-1/2">
                                 <h2 className="text-3xl font-bold text-white mb-4">Top Tracks</h2>
+                                {dataStored ? (
                                 <ul className="space-y-6 mt-6">
                                     {currentData.topTracks?.map((track, index) => (
                                         <li key={index} className="flex items-center space-x-4 text-gray-300 max-h-[45px]">
@@ -728,6 +753,23 @@ const Dashboard = () => {
                                         </li>
                                     ))}
                                 </ul>
+                                ) : (
+                                  <ul className="space-y-6 mt-6">
+                                    {Array.from({ length: 15 }).map((_, idx) => (
+                                    <li
+                                      key={idx}
+                                      className="flex items-center space-x-4 max-h-[45px] animate-pulse"
+                                    >
+                                      <div className="text-xl text-gray-500">{idx + 1}</div>
+                                      <div className="w-12 h-12 bg-gray-700 rounded shadow" />
+                                      <div>
+                                        <div className="bg-gray-700 h-5 w-40 mb-1 rounded" />
+                                        <div className="bg-gray-600 h-4 w-24 rounded" />
+                                      </div>
+                                    </li>
+                                  ))}
+                                  </ul>
+                                )}
                             </div>
                         </div>
                     )}

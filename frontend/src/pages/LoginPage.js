@@ -11,7 +11,7 @@ const Login = () => {
     <div className="flex items-center justify-center min-h-screen bg-black">
       <div className="bg-black p-8 rounded-2xl text-center text-white">
         <img src={SpotilyticsIcon} alt="logo" width="300" height="400" />
-        <p className="text-white mb-6 mt-3">Analytics for your music listening habits</p>
+        <p className="text-white text-semibold mb-6 mt-3">Analytics for your music listening habits</p>  
 
         <button
           onClick={loginWithSpotify}

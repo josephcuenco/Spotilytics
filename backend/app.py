@@ -217,7 +217,16 @@ def get_user_playlists():
             {
                 "name": t["track"]["name"],
                 "artist": t["track"]["artists"][0]["name"],
-                "lyrics": None
+                "lyrics": None,
+                "sentiment": None,
+                "lexicalRichness": {
+                    "mtld": None,
+                },
+                "profanity": {
+                    "profane_word_count": None,
+                    "profanity_ratio": None,
+                },
+                "image": t["track"]["album"]["images"][0]["url"] if t["track"]["album"]["images"] else None
             }
             for t in tracks_response["items"] if t.get("track")  # handle null cases
         ]
@@ -229,7 +238,17 @@ def get_user_playlists():
             "tracks_total": p["tracks"]["total"],
             "url": p["external_urls"]["spotify"],
             "tracks_preview": tracks,
-            "languageDistribution": None
+            "languageDistribution": None,
+            "mostPositiveSent": None, 
+            "mostNegativeSent": None, 
+            "wordCloud": None, 
+            "mostLexicalRich": None,
+            "lexicalAvg": None,
+            "mostProfane": None,
+            "profaneAvg": None,
+            "posAvg": None,
+            "negAvg": None,
+            "dataFetched": False
         }
 
         playlists.append(data_to_store)
@@ -241,6 +260,171 @@ def get_user_playlists():
         )
         
     return jsonify({"playlists": playlists})
+
+@app.route("/get-playlist-profanity")
+def get_playlist_profanity():
+    pId = request.args.get("playlist_id")
+
+    def compute_profanity_for_range():
+        results = []
+        term_data = playlist_collection.find({"id": pId})
+        for doc in term_data:
+            for track in doc.get("tracks_preview", []):
+                match = lyrics_collection.find_one({
+                    "name": track["name"],
+                    "artist": track["artist"]
+                })
+
+                lyrics = match.get("lyrics") if match else None
+                if not lyrics or not isinstance(lyrics, str):
+                    continue
+
+                profanity.load_censor_words()
+                # Count number of profane words
+                words = lyrics.split()
+                profane_count = sum(1 for word in words if profanity.contains_profanity(word))
+                total_words = len(words)
+
+                results.append({
+                    "name": track.get("name", "Unknown"),
+                    "artist": track.get("artist", "Unknown"),
+                    "profane_word_count": round(profane_count, 0),
+                    "profanity_ratio": round(profane_count / total_words, 3) if total_words > 0 else 0,
+                })
+        return results
+
+    try:
+        profanity_data = compute_profanity_for_range()
+
+        return jsonify(profanity_data)
+    except Exception as e:
+        print("Error in /get-playlist-profanity:", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/get-playlist-lexical-richness")
+def get_playlist_lexical_richness():
+    pId = request.args.get("playlist_id")
+
+    def compute_lexical_for_range():
+        results = []
+        term_data = playlist_collection.find({"id": pId})
+
+        for doc in term_data:
+            for track in doc.get("tracks_preview", []):
+                match = lyrics_collection.find_one({
+                    "name": track["name"],
+                    "artist": track["artist"]
+                })
+
+                lyrics = match.get("lyrics") if match else None
+
+                if not lyrics or not isinstance(lyrics, str):
+                    continue
+
+                try:
+                    lex = LexicalRichness(lyrics)
+                    word_count = lex.words
+                    safe_window = min(500, word_count if word_count >= 50 else 50)
+
+                    result = {
+                        "name": track.get("name", "Unknown"),
+                        "artist": track.get("artist", "Unknown"),
+                        "mtld": round(lex.mtld(), 2) if lex.mtld() else None,
+                    }
+
+                    results.append(result)
+                except ZeroDivisionError:
+                    continue  # skip too-short lyrics
+        return results
+
+    try:
+        lexical_data = compute_lexical_for_range()
+
+        return jsonify(lexical_data)
+    except Exception as e:
+        print("Error in /get-playlist-lexical-richness:", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/get-playlist-wordcloud")
+def get_playlist_wordcloud():
+    pId = request.args.get("playlist_id")
+
+    COLORS = ['#1DB954', '#FFFFFF' ]
+
+    def random_color(word, font_size, position, orientation, font_path, random_state):
+        return random.choice(COLORS)
+
+
+    def generate_wordcloud_base64(text):
+        wc = WordCloud(width=800, height=400, background_color='black', color_func=random_color).generate(text)
+        buffer = BytesIO()
+        wc.to_image().save(buffer, format="PNG")
+        return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    def create_wordcloud_for_range():
+        all_lyrics = []
+        term_data = playlist_collection.find({"id": pId})
+        for doc in term_data:
+            for track in doc.get("tracks_preview", []):
+                match = lyrics_collection.find_one({
+                    "name": track["name"],
+                    "artist": track["artist"]
+                })
+                if match and isinstance(match.get("lyrics"), str):
+                    all_lyrics.append(match["lyrics"])
+        
+        if not all_lyrics:
+            return None
+        
+        full_text = " ".join(all_lyrics)
+        return generate_wordcloud_base64(full_text)
+
+    try:
+        wordcloud = create_wordcloud_for_range()
+
+        return jsonify(wordcloud)
+    except Exception as e:
+        print("Error in /get-playlist-wordcloud:", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/get_playlist_sentiment")
+def get_playlist_sentiment():
+    # parse through top songs from mongoDB and get the sentiment data
+    pId = request.args.get("playlist_id")
+
+    def analyze_sentiment_for_range():
+        results = []
+        term_data = playlist_collection.find({"id": pId})
+        for doc in term_data:
+            for track in doc.get("tracks_preview", []):
+                match = lyrics_collection.find_one({
+                    "name": track["name"],
+                    "artist": track["artist"]
+                })
+                if  match:
+                    lyrics = match.get("lyrics")
+                else:
+                    lyrics = None
+                
+                if not lyrics or not isinstance(lyrics, str):
+                    continue
+                sid = SentimentIntensityAnalyzer()
+                ss = sid.polarity_scores(lyrics)
+                results.append({
+                    "name": track.get("name", "Unknown"),
+                    "sentiment": ss,
+                    "artist": track.get("artist", "Unknown")
+                })
+        return results
+
+    try:
+        sentiment_data = analyze_sentiment_for_range()
+        # print(sentiment_data)
+
+        return jsonify(sentiment_data)
+    except Exception as e:
+        print("Error in /get_playlist_sentiment:", e)
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/get_playlist_language_distribution")
 def get_playlist_language_distribution():
@@ -273,6 +457,7 @@ def get_playlist_language_distribution():
         for lang, conf in avg_confidences.items()
     }
     return jsonify({"languages": avg_confidences_names})
+
 
 
 def get_language_name(lang_code):
@@ -484,7 +669,7 @@ def get_top_songs_profanity():
                     result = {
                         "name": track.get("name", "Unknown"),
                         "artist": track.get("artist", "Unknown"),
-                        "profane_word_count": profane_count,
+                        "profane_word_count": round(profane_count, 0),
                         "profanity_ratio": round(profane_count / total_words, 3) if total_words > 0 else 0,
                     }
 
