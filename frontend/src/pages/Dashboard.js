@@ -632,7 +632,7 @@ const Dashboard = () => {
                             </div>
                             <p className="text-gray-300 text-lg mt-5 ml-20">
                               Here are your top tracks and artists. Explore Spotilytics 
-                              to find some interesting data about your music (that you cant find anywhere else)!
+                              to find some interesting data about your music (that you can't find anywhere else)!
                             </p>
                         </div>
 
